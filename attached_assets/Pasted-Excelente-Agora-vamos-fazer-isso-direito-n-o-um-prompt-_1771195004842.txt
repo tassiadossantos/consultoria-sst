@@ -1,0 +1,352 @@
+Excelente. Agora vamos fazer isso direito — não um prompt qualquer, mas um **prompt de arquitetura sistêmica**, capaz de gerar um software profissional, escalável e coerente com a NR-01 e exigências do eSocial.
+
+Abaixo está o **PROMPT COMPLETO**, estruturado para IA de geração de sistema (Lovable, Figma Make, v0, Cursor, etc.).
+Ele já está organizado para evitar ambiguidade, inconsistência normativa e falhas de modelagem.
+
+---
+
+# PROMPT COMPLETO — SISTEMA DE SST COM FOCO EM PGR (NR-01)
+
+Crie um sistema web profissional para Técnicos de Segurança do Trabalho, com foco principal na geração e gestão do PGR (Programa de Gerenciamento de Riscos) conforme NR-01 atualizada (vigente desde janeiro de 2022).
+
+O sistema deve ser voltado para MEIs, microempresas e pequenas empresas, permitindo gerar documentos exigidos pelo eSocial e por fiscalizações trabalhistas.
+
+Remover completamente:
+
+* ASO
+* Relatório de Acidente
+
+O PGR deve ser o núcleo central do sistema.
+
+---
+
+# OBJETIVO DO SISTEMA
+
+Permitir que o Técnico de Segurança do Trabalho:
+
+* Cadastre empresas
+* Elabore PGR conforme estrutura mínima da NR-01
+* Gere documentos técnicos derivados
+* Controle revisões
+* Gere PDF profissional
+* Registre assinatura e número de registro MTE
+* Organize treinamentos obrigatórios
+* Atenda fiscalizações
+
+---
+
+# MÓDULOS DO SISTEMA
+
+## 1) DASHBOARD PRINCIPAL
+
+Exibir:
+
+* Total de empresas
+* Total de PGR ativos
+* PGR vencidos
+* Revisões pendentes
+* Treinamentos vencidos
+* Alertas de riscos altos
+* Botão “Criar Novo PGR”
+
+---
+
+# 2) MÓDULO PGR (NR-01) — FOCO PRIORITÁRIO
+
+Criar páginas:
+
+/pgr
+/pgr/novo
+/pgr/[id]
+/pgr/revisoes
+
+---
+
+## ESTRUTURA DO PGR
+
+### ETAPA 1 — IDENTIFICAÇÃO DA EMPRESA
+
+Campos obrigatórios:
+
+* Razão Social
+* Nome Fantasia
+* CNPJ
+* CNAE
+* Grau de Risco
+* Endereço
+* Número de funcionários
+* Responsável legal
+
+---
+
+### ETAPA 2 — CARACTERIZAÇÃO DA EMPRESA
+
+* Setores
+* Jornada de trabalho
+* Processos produtivos
+* Máquinas e equipamentos
+* Atividades externas
+* Terceirizados
+
+---
+
+### ETAPA 3 — INVENTÁRIO DE RISCOS (TABELA DINÂMICA)
+
+Tabela editável com:
+
+Setor
+Função
+Atividade
+Perigo
+Risco
+Tipo de risco:
+
+* Físico
+* Químico
+* Biológico
+* Ergonômico
+* Acidente
+
+Probabilidade (1–5)
+Gravidade (1–5)
+
+Cálculo automático:
+Nível de Risco = Probabilidade x Gravidade
+
+Classificação automática:
+1–6 → Baixo
+7–15 → Médio
+16–25 → Alto
+
+Medidas de Controle:
+
+* Coletivas
+* Administrativas
+* EPI
+
+Campo para observações.
+
+---
+
+### ETAPA 4 — PLANO DE AÇÃO
+
+Tabela:
+
+Ação
+Tipo de medida
+Responsável
+Prazo
+Status:
+
+* Pendente
+* Em andamento
+* Concluído
+
+Campo para evidência.
+
+---
+
+### ETAPA 5 — TREINAMENTOS VINCULADOS
+
+Checkbox automático para:
+
+* Integração
+* NR-06 (EPI)
+* NR-10
+* NR-12
+* NR-35
+* NR-33
+* CIPA (NR-05)
+* Brigada de incêndio
+* Primeiros socorros
+
+---
+
+### ETAPA 6 — MONITORAMENTO E REVISÃO
+
+* Frequência de revisão
+* Data da próxima revisão
+* Histórico de revisões
+* Motivo da revisão
+* Campo de observações
+
+Revisão anual obrigatória.
+
+---
+
+### ETAPA 7 — RESPONSÁVEL TÉCNICO
+
+Incluir obrigatoriamente em TODOS os documentos:
+
+* Nome completo do Técnico
+* Registro profissional (MTE)
+* Telefone
+* Assinatura
+* Área para carimbo
+
+---
+
+# DOCUMENTOS DERIVADOS
+
+## 1) ORDEM DE SERVIÇO (NR-01)
+
+* Identificação do funcionário
+* Função
+* Riscos ocupacionais
+* Medidas de controle
+* Procedimentos de segurança
+* Proibições
+* Treinamentos realizados
+* Termo de responsabilidade
+* Assinatura trabalhador
+* Assinatura empresa
+* Assinatura responsável técnico + registro MTE
+
+---
+
+## 2) APR — ANÁLISE PRELIMINAR DE RISCO
+
+Tabela:
+
+Etapa
+Perigo
+Risco
+Probabilidade
+Gravidade
+Nível
+Medidas de Controle
+
+Legenda automática de classificação.
+
+Assinaturas:
+
+* Responsável técnico
+* Responsável pela atividade
+* Registro MTE
+
+---
+
+## 3) FICHA DE ENTREGA DE EPI (NR-06)
+
+Tabela:
+
+Data
+EPI
+CA
+Quantidade
+Assinatura
+Devolução
+
+Termo de compromisso.
+
+Assinatura trabalhador
+Assinatura responsável
+Assinatura técnico + registro MTE
+
+---
+
+## 4) POP — PROCEDIMENTO OPERACIONAL PADRÃO
+
+Estrutura:
+
+Objetivo
+Aplicação
+Responsabilidades
+Equipamentos
+EPIs obrigatórios
+Descrição das etapas
+Cuidados
+Ações em emergência
+
+Assinatura elaborador
+Assinatura aprovador
+Assinatura responsável técnico + registro
+
+---
+
+# 3) MÓDULO DE TREINAMENTOS
+
+Criar área /treinamentos
+
+Dashboard com:
+
+* Total realizados
+* Vencidos
+* Agendados
+* Próximos a vencer
+
+Gerar:
+
+* Lista de presença
+* Certificado
+* Registro completo
+
+Campos:
+
+Empresa
+Título
+Tipo de treinamento
+Carga horária
+Data
+Local
+Instrutor
+Qualificação
+
+Participantes:
+
+* Nome
+* CPF
+* Função
+
+Controle de validade e reciclagem obrigatória.
+
+Todos os documentos com assinatura do instrutor e responsável técnico.
+
+---
+
+# FUNCIONALIDADES OBRIGATÓRIAS
+
+* Geração de PDF profissional
+* Layout formal técnico
+* Versionamento de PGR
+* Multiempresa
+* Filtros por empresa e status
+* Busca inteligente
+* Histórico completo
+* Cálculo automático da matriz de risco
+* Alertas de vencimento
+* Estrutura compatível com exigências do eSocial (S-2240)
+
+---
+
+# REGRAS IMPORTANTES
+
+* O PGR é o documento central
+* Todos os documentos devem derivar dele
+* Interface clara e objetiva
+* Linguagem técnica e profissional
+* Estrutura juridicamente coerente com NR-01, NR-05, NR-06, NR-07 e NR-12
+* Sempre incluir área de assinatura e número de registro do Técnico
+
+---
+
+# OBJETIVO FINAL
+
+Criar um sistema robusto, profissional e escalável, que possa evoluir para SaaS completo de gestão de SST.
+
+O sistema deve transmitir autoridade técnica, organização documental e conformidade legal.
+
+---
+
+Isso não é apenas um gerador de PDF.
+É um núcleo de governança de risco ocupacional.
+
+Se quiser, posso agora transformar isso em:
+
+– Arquitetura de banco de dados
+– Estrutura SaaS escalável
+– Prompt específico para Lovable
+– Prompt específico para v0 (React + Tailwind)
+– Documento técnico para desenvolvedor
+
+O PGR é a espinha dorsal. Todo o resto é consequência lógica.
