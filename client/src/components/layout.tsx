@@ -44,8 +44,8 @@ export function Layout({ children }: LayoutProps) {
         )}
       >
         <div className="h-16 flex items-center px-4 border-b border-sidebar-border gap-3">
-          <div className="w-8 h-8 rounded bg-primary flex items-center justify-center shrink-0">
-            <ShieldAlert className="w-5 h-5 text-primary-foreground" />
+          <div className="w-8 h-8 rounded overflow-hidden flex items-center justify-center shrink-0">
+            <img src="/logo-sst.png" alt="SST Pro Logo" className="w-full h-full object-cover" />
           </div>
           {sidebarOpen && (
             <span className="font-bold text-lg tracking-tight whitespace-nowrap">
@@ -105,7 +105,7 @@ export function Layout({ children }: LayoutProps) {
               onClick={() => setSidebarOpen(!sidebarOpen)}
               className="text-muted-foreground hover:text-foreground"
             >
-              {sidebarOpen ? <Menu className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              <Menu className="w-5 h-5" />
             </Button>
             <h1 className="text-lg font-semibold text-foreground hidden md:block">
               {navigation.find(n => n.href === location || (n.href !== "/" && location.startsWith(n.href)))?.name || "Dashboard"}
