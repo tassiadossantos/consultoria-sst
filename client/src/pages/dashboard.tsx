@@ -28,7 +28,7 @@ export default function Dashboard() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h2 className="text-3xl font-bold tracking-tight text-foreground">Visão Geral</h2>
-            <p className="text-muted-foreground mt-1">Bem-vindo de volta, João. Você tem 3 pendências urgentes hoje.</p>
+            <p className="text-muted-foreground mt-1">Bem-vinda de volta, Tassia. Você tem 3 pendências urgentes hoje.</p>
           </div>
           <Link href="/pgr/novo">
             <Button className="shadow-lg shadow-primary/20">

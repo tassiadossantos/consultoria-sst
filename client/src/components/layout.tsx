@@ -49,7 +49,7 @@ export function Layout({ children }: LayoutProps) {
           </div>
           {sidebarOpen && (
             <span className="font-bold text-lg tracking-tight whitespace-nowrap">
-              SST Pro
+              Consultoria em Segurança do Trabalho
             </span>
           )}
         </div>
@@ -80,16 +80,16 @@ export function Layout({ children }: LayoutProps) {
           {sidebarOpen ? (
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center">
-                <span className="font-medium text-xs">JD</span>
+                <span className="font-medium text-xs">TS</span>
               </div>
               <div className="flex flex-col overflow-hidden">
-                <span className="text-sm font-medium truncate">João Dias</span>
+                <span className="text-sm font-medium truncate">Tassia dos Santos</span>
                 <span className="text-xs text-sidebar-foreground/60 truncate">Téc. Segurança</span>
               </div>
             </div>
           ) : (
              <div className="w-8 h-8 mx-auto rounded-full bg-sidebar-accent flex items-center justify-center">
-                <span className="font-medium text-xs">JD</span>
+                <span className="font-medium text-xs">TS</span>
               </div>
           )}
         </div>

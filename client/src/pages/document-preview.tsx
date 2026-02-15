@@ -209,8 +209,8 @@ export default function DocumentPreview() {
               <p className="text-xs text-slate-500">Responsável Legal</p>
             </div>
             <div className="border-t border-slate-900 pt-2">
-              <p className="font-bold text-sm uppercase">João Dias</p>
-              <p className="text-xs text-slate-500">Técnico em Segurança do Trabalho</p>
+              <p className="font-bold text-sm uppercase">Tassia dos Santos</p>
+              <p className="text-xs text-slate-500">Técnica em Segurança do Trabalho</p>
               <p className="text-xs text-slate-500">Registro MTE: 00.1234/SP</p>
             </div>
           </div>
