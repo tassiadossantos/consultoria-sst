@@ -1,22 +1,59 @@
-import React from "react";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Printer, ArrowLeft, Download } from "lucide-react";
 import { Link, useRoute } from "wouter";
-import { mockPGRs, mockCompanies } from "@/lib/mock-data";
+import { useQuery } from "@tanstack/react-query";
+import { getPgrDetail } from "@/lib/pgr";
+import { isSupabaseConfigured } from "@/lib/supabase";
 
 export default function DocumentPreview() {
   const [match, params] = useRoute("/pgr/:id/preview");
   const pgrId = params?.id;
-  
-  // Mock data retrieval
-  const pgr = mockPGRs.find(p => p.id === pgrId) || mockPGRs[0];
-  const company = mockCompanies.find(c => c.id === pgr.companyId) || mockCompanies[0];
+
+  const supabaseReady = isSupabaseConfigured();
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ["pgr", pgrId],
+    queryFn: () => getPgrDetail(pgrId ?? ""),
+    enabled: supabaseReady && Boolean(pgrId),
+  });
 
   const handlePrint = () => {
     window.print();
   };
+
+  if (!supabaseReady) {
+    return (
+      <div className="min-h-screen bg-muted/50 p-6 md:p-12">
+        <Alert>
+          <AlertTitle>Supabase não configurado</AlertTitle>
+          <AlertDescription>
+            Preencha o arquivo .env com VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY para visualizar o PGR.
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-muted/50 p-6 md:p-12 text-sm text-muted-foreground">
+        Carregando PGR...
+      </div>
+    );
+  }
+
+  if (isError || !data) {
+    return (
+      <div className="min-h-screen bg-muted/50 p-6 md:p-12">
+        <Alert variant="destructive">
+          <AlertTitle>Falha ao carregar o PGR</AlertTitle>
+          <AlertDescription>Verifique a conexão com o Supabase e tente novamente.</AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
+  const { pgr, company, risks, actions } = data;
 
   return (
     <div className="min-h-screen bg-muted/50 p-6 md:p-12 print:p-0 print:bg-white">
@@ -52,7 +89,7 @@ export default function DocumentPreview() {
             </div>
           </div>
           <div className="text-right text-xs text-slate-500">
-            <p>Ref: {pgr.id.toUpperCase()}</p>
+            <p>Ref: {pgr.id.slice(0, 8).toUpperCase()}</p>
             <p>Data: {new Date().toLocaleDateString('pt-BR')}</p>
             <p>Rev: {pgr.revision.toString().padStart(2, '0')}</p>
           </div>
@@ -64,115 +101,111 @@ export default function DocumentPreview() {
           <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
             <div>
               <span className="block text-xs text-slate-500 uppercase">Razão Social</span>
-              <p className="font-medium">{company.name}</p>
+              <p className="font-medium">{company?.name ?? "Não informado"}</p>
             </div>
             <div>
               <span className="block text-xs text-slate-500 uppercase">CNPJ</span>
-              <p className="font-medium">{company.cnpj}</p>
+              <p className="font-medium">{company?.cnpj ?? "-"}</p>
             </div>
             <div>
               <span className="block text-xs text-slate-500 uppercase">Grau de Risco</span>
-              <p className="font-medium">{company.riskLevel}</p>
+              <p className="font-medium">{company?.risk_level ?? "-"}</p>
             </div>
              <div>
               <span className="block text-xs text-slate-500 uppercase">Nº Funcionários</span>
-              <p className="font-medium">{company.employees}</p>
+              <p className="font-medium">{company?.employees ?? "-"}</p>
             </div>
             <div className="col-span-2">
               <span className="block text-xs text-slate-500 uppercase">Endereço</span>
-              <p className="font-medium">Av. das Indústrias, 1000 - Distrito Industrial, São Paulo - SP</p>
+              <p className="font-medium">{company?.address ?? "Não informado"}</p>
             </div>
           </div>
         </section>
 
-        {/* 2. Inventário de Riscos (Mock) */}
+        {/* 2. Caracterização */}
         <section className="mb-8 break-inside-avoid">
-          <h2 className="text-sm font-bold bg-slate-100 p-2 border-l-4 border-slate-800 mb-4 uppercase">2. Inventário de Riscos Ocupacionais</h2>
-          
+          <h2 className="text-sm font-bold bg-slate-100 p-2 border-l-4 border-slate-800 mb-4 uppercase">2. Caracterização da Empresa</h2>
+          <div className="text-sm text-slate-700 whitespace-pre-wrap">
+            {pgr.characterization ?? "Não informado"}
+          </div>
+        </section>
+
+        {/* 2.1 Responsabilidades */}
+        <section className="mb-8 break-inside-avoid">
+          <h2 className="text-sm font-bold bg-slate-100 p-2 border-l-4 border-slate-800 mb-4 uppercase">2.1 Responsabilidades</h2>
+          <div className="text-sm text-slate-700 whitespace-pre-wrap">
+            {pgr.responsibilities ?? "Não informado"}
+          </div>
+        </section>
+
+        {/* 3. Inventário de Riscos */}
+        <section className="mb-8 break-inside-avoid">
+          <h2 className="text-sm font-bold bg-slate-100 p-2 border-l-4 border-slate-800 mb-4 uppercase">3. Inventário de Riscos Ocupacionais</h2>
+
           <div className="border rounded-sm overflow-hidden text-sm">
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-slate-50 text-xs uppercase text-slate-600 border-b">
                   <th className="p-2 border-r">Setor/Função</th>
-                  <th className="p-2 border-r">Perigo/Fator de Risco</th>
+                  <th className="p-2 border-r">Perigo/Risco</th>
                   <th className="p-2 border-r w-24 text-center">Nível</th>
                   <th className="p-2">Medidas de Controle</th>
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {/* Mock Row 1 */}
-                <tr>
-                  <td className="p-2 border-r align-top">
-                    <p className="font-bold">Produção</p>
-                    <p className="text-xs text-slate-500">Soldador</p>
-                  </td>
-                  <td className="p-2 border-r align-top">
-                    <p className="font-medium">Fumos Metálicos</p>
-                    <p className="text-xs text-slate-500">Químico</p>
-                  </td>
-                  <td className="p-2 border-r align-top text-center">
-                    <span className="inline-block px-2 py-1 bg-orange-100 text-orange-800 text-xs font-bold rounded">
-                      Médio (12)
-                    </span>
-                  </td>
-                  <td className="p-2 align-top text-xs">
-                    Exaustão localizatada (EPC);<br/>
-                    Máscara de solda com filtro (EPI);<br/>
-                    Treinamento em proteção respiratória.
-                  </td>
-                </tr>
-
-                 {/* Mock Row 2 */}
-                 <tr>
-                  <td className="p-2 border-r align-top">
-                    <p className="font-bold">Produção</p>
-                    <p className="text-xs text-slate-500">Operador de Máquina</p>
-                  </td>
-                  <td className="p-2 border-r align-top">
-                    <p className="font-medium">Ruído Contínuo</p>
-                    <p className="text-xs text-slate-500">Físico</p>
-                  </td>
-                  <td className="p-2 border-r align-top text-center">
-                    <span className="inline-block px-2 py-1 bg-red-100 text-red-800 text-xs font-bold rounded">
-                      Alto (20)
-                    </span>
-                  </td>
-                  <td className="p-2 align-top text-xs">
-                    Enclausuramento da fonte (EPC);<br/>
-                    Protetor auricular tipo concha (EPI);<br/>
-                    Audiometria semestral (PCA).
-                  </td>
-                </tr>
-
-                {/* Mock Row 3 */}
-                <tr>
-                  <td className="p-2 border-r align-top">
-                    <p className="font-bold">Administrativo</p>
-                    <p className="text-xs text-slate-500">Auxiliar</p>
-                  </td>
-                  <td className="p-2 border-r align-top">
-                    <p className="font-medium">Postura inadequada</p>
-                    <p className="text-xs text-slate-500">Ergonômico</p>
-                  </td>
-                  <td className="p-2 border-r align-top text-center">
-                    <span className="inline-block px-2 py-1 bg-emerald-100 text-emerald-800 text-xs font-bold rounded">
-                      Baixo (4)
-                    </span>
-                  </td>
-                  <td className="p-2 align-top text-xs">
-                    Mobiliário regulável (NR-17);<br/>
-                    Pausas regulares;<br/>
-                    Ginástica laboral.
-                  </td>
-                </tr>
+                {risks.length === 0 ? (
+                  <tr>
+                    <td className="p-2 text-center text-xs text-slate-500" colSpan={4}>
+                      Nenhum risco registrado.
+                    </td>
+                  </tr>
+                ) : (
+                  risks.map((risk) => (
+                    <tr key={risk.id}>
+                      <td className="p-2 border-r align-top">
+                        <p className="font-bold">{risk.sector ?? "-"}</p>
+                        <p className="text-xs text-slate-500">{risk.role ?? "-"}</p>
+                      </td>
+                      <td className="p-2 border-r align-top">
+                        <p className="font-medium">{risk.hazard ?? "-"}</p>
+                        <p className="text-xs text-slate-500">{risk.risk ?? "-"}</p>
+                      </td>
+                      <td className="p-2 border-r align-top text-center">
+                        <span className="inline-block px-2 py-1 bg-slate-100 text-slate-800 text-xs font-bold rounded">
+                          {risk.risk_level ?? "-"} ({risk.risk_score ?? "-"})
+                        </span>
+                      </td>
+                      <td className="p-2 align-top text-xs">
+                        {risk.controls ?? "-"}
+                        {risk.epi ? <div className="mt-2"><strong>EPI:</strong> {risk.epi}</div> : null}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>
         </section>
 
-        {/* 3. Plano de Ação */}
+        {/* 4. Avaliação e Classificação */}
         <section className="mb-8 break-inside-avoid">
-           <h2 className="text-sm font-bold bg-slate-100 p-2 border-l-4 border-slate-800 mb-4 uppercase">3. Plano de Ação</h2>
+          <h2 className="text-sm font-bold bg-slate-100 p-2 border-l-4 border-slate-800 mb-4 uppercase">4. Avaliação e Classificação dos Riscos</h2>
+          <div className="text-sm text-slate-700 whitespace-pre-wrap">
+            {pgr.risk_criteria ?? "Não informado"}
+          </div>
+        </section>
+
+        {/* 5. Medidas de Prevenção e Controle */}
+        <section className="mb-8 break-inside-avoid">
+          <h2 className="text-sm font-bold bg-slate-100 p-2 border-l-4 border-slate-800 mb-4 uppercase">5. Medidas de Prevenção e Controle</h2>
+          <div className="text-sm text-slate-700 whitespace-pre-wrap">
+            {pgr.control_measures ?? "Não informado"}
+          </div>
+        </section>
+
+          {/* 6. Plano de Ação */}
+        <section className="mb-8 break-inside-avoid">
+            <h2 className="text-sm font-bold bg-slate-100 p-2 border-l-4 border-slate-800 mb-4 uppercase">6. Plano de Ação</h2>
             <div className="border rounded-sm overflow-hidden text-sm">
              <table className="w-full text-left border-collapse">
               <thead>
@@ -184,34 +217,58 @@ export default function DocumentPreview() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                 <tr>
-                  <td className="p-2 border-r">Instalar exaustores na área de solda</td>
-                  <td className="p-2 border-r">Eng. Manutenção</td>
-                  <td className="p-2 border-r">30/06/2026</td>
-                  <td className="p-2 text-center"><span className="text-xs font-bold text-amber-600">PENDENTE</span></td>
-                 </tr>
-                 <tr>
-                  <td className="p-2 border-r">Realizar treinamento de NR-06</td>
-                  <td className="p-2 border-r">Téc. Segurança</td>
-                  <td className="p-2 border-r">15/04/2026</td>
-                  <td className="p-2 text-center"><span className="text-xs font-bold text-emerald-600">CONCLUÍDO</span></td>
-                 </tr>
+                 {actions.length === 0 ? (
+                   <tr>
+                     <td className="p-2 text-center text-xs text-slate-500" colSpan={4}>
+                       Nenhuma ação registrada.
+                     </td>
+                   </tr>
+                 ) : (
+                   actions.map((action) => (
+                     <tr key={action.id}>
+                       <td className="p-2 border-r">{action.action ?? "-"}</td>
+                       <td className="p-2 border-r">{action.owner ?? "-"}</td>
+                       <td className="p-2 border-r">
+                         {action.due_date ? new Date(action.due_date).toLocaleDateString("pt-BR") : "-"}
+                       </td>
+                       <td className="p-2 text-center">
+                         <span className="text-xs font-bold text-slate-600">{action.status ?? "-"}</span>
+                       </td>
+                     </tr>
+                   ))
+                 )}
               </tbody>
              </table>
             </div>
+        </section>
+
+        {/* 7. Treinamentos */}
+        <section className="mb-8 break-inside-avoid">
+          <h2 className="text-sm font-bold bg-slate-100 p-2 border-l-4 border-slate-800 mb-4 uppercase">7. Treinamentos e Capacitacoes</h2>
+          <div className="text-sm text-slate-700 whitespace-pre-wrap">
+            {pgr.training_plan ?? "Não informado"}
+          </div>
+        </section>
+
+        {/* 8. Monitoramento e Revisão */}
+        <section className="mb-8 break-inside-avoid">
+          <h2 className="text-sm font-bold bg-slate-100 p-2 border-l-4 border-slate-800 mb-4 uppercase">8. Monitoramento e Revisão</h2>
+          <div className="text-sm text-slate-700 whitespace-pre-wrap">
+            {pgr.monitoring ?? "Não informado"}
+          </div>
         </section>
 
         {/* Footer / Signatures */}
         <footer className="mt-20 break-inside-avoid">
           <div className="grid grid-cols-2 gap-12 text-center">
             <div className="border-t border-slate-900 pt-2">
-              <p className="font-bold text-sm uppercase">{company.name}</p>
+              <p className="font-bold text-sm uppercase">{company?.name ?? "Empresa"}</p>
               <p className="text-xs text-slate-500">Responsável Legal</p>
             </div>
             <div className="border-t border-slate-900 pt-2">
-              <p className="font-bold text-sm uppercase">Tassia dos Santos</p>
-              <p className="text-xs text-slate-500">Técnica em Segurança do Trabalho</p>
-              <p className="text-xs text-slate-500">Registro MTE: 00.1234/SP</p>
+              <p className="font-bold text-sm uppercase">{pgr.responsible_name ?? "Responsável Técnico"}</p>
+              <p className="text-xs text-slate-500">Técnico de Segurança do Trabalho</p>
+              <p className="text-xs text-slate-500">Registro MTE: {pgr.responsible_registry ?? "-"}</p>
             </div>
           </div>
           <div className="mt-8 text-center text-xs text-slate-400 border-t pt-4">

@@ -17,6 +17,7 @@ function Router() {
       <Route path="/" component={Dashboard} />
       <Route path="/pgr" component={PGRList} />
       <Route path="/pgr/novo" component={PGRWizard} />
+      <Route path="/pgr/:id/editar" component={PGRWizard} />
       <Route path="/pgr/:id/preview" component={DocumentPreview} />
       <Route path="/treinamentos" component={Trainings} />
       <Route path="/documentos" component={Documents} />

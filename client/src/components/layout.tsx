@@ -43,13 +43,10 @@ export function Layout({ children }: LayoutProps) {
           isMobile && !sidebarOpen && "w-0 overflow-hidden"
         )}
       >
-        <div className="h-16 flex items-center px-4 border-b border-sidebar-border gap-3">
-          <div className="w-8 h-8 rounded overflow-hidden flex items-center justify-center shrink-0">
-            <img src="/logo-sst.png" alt="SST Pro Logo" className="w-full h-full object-cover" />
-          </div>
+        <div className="h-16 flex items-center px-4 border-b border-sidebar-border gap-3 min-w-0">
           {sidebarOpen && (
-            <span className="font-bold text-lg tracking-tight whitespace-nowrap">
-              Consultoria em Segurança do Trabalho
+            <span className="font-bold text-lg tracking-tight whitespace-nowrap truncate max-w-[11rem]">
+              Consultoria em SST
             </span>
           )}
         </div>
