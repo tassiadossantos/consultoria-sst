@@ -19,6 +19,71 @@ export default function Dashboard() {
   const activePGRs = mockPGRs.filter(p => p.status === "active").length;
   const expiredPGRs = mockPGRs.filter(p => p.status === "expired").length;
   const draftPGRs = mockPGRs.filter(p => p.status === "draft").length;
+  const totalCompanies = mockCompanies.length;
+  const companiesWithPgr = mockCompanies.filter((company) =>
+    mockPGRs.some((pgr) => pgr.companyId === company.id),
+  ).length;
+  const draftSummaryText =
+    draftPGRs === 0
+      ? "Nenhum rascunho pendente"
+      : draftPGRs === 1
+        ? "1 rascunho pendente"
+        : `${draftPGRs} rascunhos pendentes`;
+  const companiesSummaryText =
+    totalCompanies === 0
+      ? "Nenhuma empresa cadastrada"
+      : companiesWithPgr === 1
+        ? "1 empresa com PGR monitorado"
+        : `${companiesWithPgr} empresas com PGR monitorado`;
+
+  const now = new Date();
+  const currentMonth = now.getMonth();
+  const currentYear = now.getFullYear();
+  const previousMonthDate = new Date(currentYear, currentMonth - 1, 1);
+  const previousMonth = previousMonthDate.getMonth();
+  const previousYear = previousMonthDate.getFullYear();
+
+  const activeCurrentMonth = mockPGRs.filter((pgr) => {
+    if (pgr.status !== "active") {
+      return false;
+    }
+
+    const createdAt = new Date(pgr.createdAt);
+    return createdAt.getMonth() === currentMonth && createdAt.getFullYear() === currentYear;
+  }).length;
+
+  const activePreviousMonth = mockPGRs.filter((pgr) => {
+    if (pgr.status !== "active") {
+      return false;
+    }
+
+    const createdAt = new Date(pgr.createdAt);
+    return createdAt.getMonth() === previousMonth && createdAt.getFullYear() === previousYear;
+  }).length;
+
+  const activeDelta = activeCurrentMonth - activePreviousMonth;
+  const activeDeltaText =
+    activeDelta === 0
+      ? "Sem variação desde o último mês"
+      : `${activeDelta > 0 ? "+" : ""}${activeDelta} desde o último mês`;
+
+  const msPerDay = 1000 * 60 * 60 * 24;
+  const expiredOver30Days = mockPGRs.filter((pgr) => {
+    if (pgr.status !== "expired" || pgr.validUntil === "-") {
+      return false;
+    }
+
+    const validUntil = new Date(pgr.validUntil);
+    const diffDays = Math.floor((now.getTime() - validUntil.getTime()) / msPerDay);
+    return diffDays > 30;
+  }).length;
+
+  const expiredSummaryText =
+    expiredPGRs === 0
+      ? "Nenhum vencido"
+      : expiredOver30Days === 0
+        ? `${expiredPGRs} vencido${expiredPGRs > 1 ? "s" : ""}`
+        : `${expiredOver30Days} vencido${expiredOver30Days > 1 ? "s" : ""} há mais de 30 dias`;
   
   return (
     <Layout>
@@ -39,57 +104,65 @@ export default function Dashboard() {
 
         {/* Stats Grid */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-          <Card className="hover:shadow-md transition-all border-l-4 border-l-primary">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">PGRs Ativos</CardTitle>
-              <FileCheck className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{activePGRs}</div>
-              <p className="text-xs text-muted-foreground">
-                +2 desde o último mês
-              </p>
-            </CardContent>
-          </Card>
+          <Link href="/pgr?status=active">
+            <Card className="hover:shadow-md transition-all border-l-4 border-l-primary cursor-pointer">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">PGRs Ativos</CardTitle>
+                <FileCheck className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{activePGRs}</div>
+                <p className="text-xs text-muted-foreground">
+                  {activeDeltaText}
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card className="hover:shadow-md transition-all border-l-4 border-l-destructive">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Documentos Vencidos</CardTitle>
-              <AlertTriangle className="h-4 w-4 text-destructive" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-destructive">{expiredPGRs}</div>
-              <p className="text-xs text-muted-foreground">
-                Requer atenção imediata
-              </p>
-            </CardContent>
-          </Card>
+          <Link href="/pgr?status=expired">
+            <Card className="hover:shadow-md transition-all border-l-4 border-l-destructive cursor-pointer">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Documentos Vencidos</CardTitle>
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-destructive">{expiredPGRs}</div>
+                <p className="text-xs text-muted-foreground">
+                  {expiredSummaryText}
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card className="hover:shadow-md transition-all border-l-4 border-l-amber-500">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Em Elaboração</CardTitle>
-              <Clock className="h-4 w-4 text-amber-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{draftPGRs}</div>
-              <p className="text-xs text-muted-foreground">
-                4 rascunhos pendentes
-              </p>
-            </CardContent>
-          </Card>
+          <Link href="/pgr?status=draft">
+            <Card className="hover:shadow-md transition-all border-l-4 border-l-amber-500 cursor-pointer">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Em Elaboração</CardTitle>
+                <Clock className="h-4 w-4 text-amber-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{draftPGRs}</div>
+                <p className="text-xs text-muted-foreground">
+                  {draftSummaryText}
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
 
-          <Card className="hover:shadow-md transition-all border-l-4 border-l-blue-500">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Empresas</CardTitle>
-              <Users className="h-4 w-4 text-blue-500" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{mockCompanies.length}</div>
-              <p className="text-xs text-muted-foreground">
-                Gestão ativa
-              </p>
-            </CardContent>
-          </Card>
+          <Link href="/pgr">
+            <Card className="hover:shadow-md transition-all border-l-4 border-l-blue-500 cursor-pointer">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Empresas</CardTitle>
+                <Users className="h-4 w-4 text-blue-500" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{totalCompanies}</div>
+                <p className="text-xs text-muted-foreground">
+                  {companiesSummaryText}
+                </p>
+              </CardContent>
+            </Card>
+          </Link>
         </div>
 
         {/* Main Content Area */}
@@ -105,34 +178,47 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {mockPGRs.map((pgr) => (
-                  <div key={pgr.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors group cursor-pointer">
-                    <div className="flex items-center gap-4">
-                      <div className={`w-2 h-12 rounded-full ${
-                        pgr.status === 'active' ? 'bg-emerald-500' : 
-                        pgr.status === 'expired' ? 'bg-destructive' : 'bg-amber-500'
-                      }`} />
-                      <div>
-                        <p className="font-medium group-hover:text-primary transition-colors">{pgr.companyName}</p>
-                        <p className="text-sm text-muted-foreground">Rev. {pgr.revision} • Atualizado em {new Date(pgr.createdAt).toLocaleDateString('pt-BR')}</p>
+                {mockPGRs.map((pgr) => {
+                  const pgrHref =
+                    pgr.status === "draft"
+                      ? `/pgr/${pgr.id}/editar`
+                      : `/pgr/${pgr.id}/preview`;
+
+                  return (
+                    <Link key={pgr.id} href={pgrHref}>
+                      <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors group cursor-pointer">
+                        <div className="flex items-center gap-4">
+                          <div
+                            className={`w-2 h-12 rounded-full ${
+                              pgr.status === "active"
+                                ? "bg-emerald-500"
+                                : pgr.status === "expired"
+                                  ? "bg-destructive"
+                                  : "bg-amber-500"
+                            }`}
+                          />
+                          <div>
+                            <p className="font-medium group-hover:text-primary transition-colors">{pgr.companyName}</p>
+                            <p className="text-sm text-muted-foreground">Rev. {pgr.revision} • Atualizado em {new Date(pgr.createdAt).toLocaleDateString("pt-BR")}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <div className="text-right hidden sm:block">
+                            <p className="text-sm font-medium">
+                              {pgr.status === "active" ? "Vigente" : pgr.status === "expired" ? "Vencido" : "Rascunho"}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {pgr.status === "active" ? `Até ${new Date(pgr.validUntil).toLocaleDateString("pt-BR")}` : "Ação Necessária"}
+                            </p>
+                          </div>
+                          <div className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground group-hover:text-primary">
+                            <ChevronRight className="h-4 w-4" />
+                          </div>
+                        </div>
                       </div>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="text-right hidden sm:block">
-                        <p className="text-sm font-medium">
-                          {pgr.status === 'active' ? 'Vigente' : 
-                           pgr.status === 'expired' ? 'Vencido' : 'Rascunho'}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {pgr.status === 'active' ? `Até ${new Date(pgr.validUntil).toLocaleDateString('pt-BR')}` : 'Ação Necessária'}
-                        </p>
-                      </div>
-                      <Button variant="ghost" size="icon">
-                        <ChevronRight className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                    </Link>
+                  );
+                })}
               </div>
             </CardContent>
           </Card>
@@ -151,7 +237,9 @@ export default function Dashboard() {
                 <p className="text-sm text-muted-foreground mb-3">
                   3 funcionários da <strong>Metalúrgica Aço Forte</strong> precisam renovar NR-35 esta semana.
                 </p>
-                <Button variant="outline" size="sm" className="w-full">Verificar</Button>
+                <Link href="/treinamentos?busca=Metalúrgica%20Aço%20Forte%20NR-35">
+                  <Button variant="outline" size="sm" className="w-full">Verificar</Button>
+                </Link>
               </div>
 
               <div className="p-4 bg-white dark:bg-card border rounded-lg shadow-sm">
@@ -162,7 +250,9 @@ export default function Dashboard() {
                 <p className="text-sm text-muted-foreground mb-3">
                   Nova portaria do MTE sobre eSocial S-2240 foi publicada. O sistema já está atualizado.
                 </p>
-                <Button variant="ghost" size="sm" className="w-full text-primary hover:text-primary/80">Ler nota técnica</Button>
+                <Link href="/atualizacao-normativa">
+                  <Button variant="ghost" size="sm" className="w-full text-primary hover:text-primary/80">Ler nota técnica</Button>
+                </Link>
               </div>
             </CardContent>
           </Card>

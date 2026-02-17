@@ -275,6 +275,16 @@ describe("PGRWizard integration", () => {
     ).toBeInTheDocument();
   });
 
+  it("uses mock fallback for known draft id when getPgrDetail fails", async () => {
+    getPgrDetailMock.mockRejectedValue(new Error("Falha de rede"));
+
+    renderWizard("/pgr/pgr-4/editar");
+
+    expect(await screen.findByText("Editar PGR (NR-01)")).toBeInTheDocument();
+    expect(screen.queryByText("Falha ao carregar PGR")).not.toBeInTheDocument();
+    expect(await screen.findByDisplayValue("Oficina Mecânica Rápida")).toBeInTheDocument();
+  });
+
   it("blocks update when hydrated payload has no companyId", async () => {
     getPgrDetailMock.mockResolvedValue({
       ...editFixture,

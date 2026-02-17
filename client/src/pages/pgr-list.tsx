@@ -10,17 +10,50 @@ import { Search, Plus, FileText, Printer, Pencil } from "lucide-react";
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { isSupabaseConfigured } from "@/lib/supabase";
-import { listPgrs } from "@/lib/pgr";
+import { listPgrs, type PgrListItem } from "@/lib/pgr";
+import { mockCompanies, mockPGRs } from "@/lib/mock-data";
 
 export default function PGRList() {
   const supabaseReady = isSupabaseConfigured();
-  const { data: pgrs = [], isLoading, isError } = useQuery({
+  const { data: supabasePgrs = [], isLoading, isError } = useQuery({
     queryKey: ["pgrs"],
     queryFn: listPgrs,
     enabled: supabaseReady,
   });
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const initialStatusFilter = useMemo(() => {
+    const statusParam = new URLSearchParams(window.location.search).get("status");
+    return statusParam && ["all", "draft", "active", "expired", "pending_review"].includes(statusParam)
+      ? statusParam
+      : "all";
+  }, []);
+  const [statusFilter, setStatusFilter] = useState(initialStatusFilter);
+
+  const fallbackPgrs: PgrListItem[] = useMemo(
+    () =>
+      mockPGRs.map((item) => {
+        const company = mockCompanies.find((c) => c.id === item.companyId);
+
+        return {
+          id: item.id,
+          status: item.status,
+          revision: item.revision,
+          valid_until: item.validUntil === "-" ? null : item.validUntil,
+          created_at: item.createdAt,
+          progress: item.progress,
+          company: company
+            ? {
+                id: company.id,
+                name: company.name,
+                cnpj: company.cnpj,
+              }
+            : null,
+        };
+      }),
+    [],
+  );
+
+  const pgrs = supabaseReady && supabasePgrs.length > 0 ? supabasePgrs : fallbackPgrs;
 
   const filteredPgrs = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -109,7 +142,7 @@ export default function PGRList() {
         )}
 
         {/* Data Table */}
-        {pgrs.length === 0 && supabaseReady && !isLoading ? (
+        {pgrs.length === 0 && !isLoading ? (
           <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">
             Nenhum PGR cadastrado ainda. Clique em "Novo PGR" para iniciar.
           </div>

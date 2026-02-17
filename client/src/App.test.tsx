@@ -10,6 +10,10 @@ vi.mock("@/pages/pgr-list", () => ({
   default: () => <div>PGR List Page</div>,
 }));
 
+vi.mock("@/pages/companies", () => ({
+  default: () => <div>Companies Page</div>,
+}));
+
 vi.mock("@/pages/pgr-wizard", () => ({
   default: () => <div>PGR Wizard Page</div>,
 }));
@@ -24,6 +28,10 @@ vi.mock("@/pages/trainings", () => ({
 
 vi.mock("@/pages/documents", () => ({
   default: () => <div>Documents Page</div>,
+}));
+
+vi.mock("@/pages/normative-update", () => ({
+  default: () => <div>Normative Update Page</div>,
 }));
 
 vi.mock("@/pages/not-found", () => ({
@@ -60,6 +68,13 @@ describe("App routes", () => {
     expect(screen.getByText("PGR List Page")).toBeInTheDocument();
   });
 
+  it("renders companies route", () => {
+    setPath("/empresas");
+    render(<App />);
+
+    expect(screen.getByText("Companies Page")).toBeInTheDocument();
+  });
+
   it("renders pgr wizard create route", () => {
     setPath("/pgr/novo");
     render(<App />);
@@ -93,6 +108,13 @@ describe("App routes", () => {
     render(<App />);
 
     expect(screen.getByText("Documents Page")).toBeInTheDocument();
+  });
+
+  it("renders normative update route", () => {
+    setPath("/atualizacao-normativa");
+    render(<App />);
+
+    expect(screen.getByText("Normative Update Page")).toBeInTheDocument();
   });
 
   it("renders fallback route for unknown paths", () => {

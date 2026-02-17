@@ -26,7 +26,7 @@ import {
   Activity
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { riskTypes, calculateRiskLevel } from "@/lib/mock-data";
+import { riskTypes, calculateRiskLevel, mockCompanies, mockPGRs } from "@/lib/mock-data";
 import { createPgr, getPgrDetail, updatePgr } from "@/lib/pgr";
 import { isSupabaseConfigured } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
@@ -146,6 +146,58 @@ export default function PGRWizard() {
     enabled: supabaseReady && isEditing,
   });
 
+  const fallbackEditData = useMemo(() => {
+    if (!isEditing || !editId) {
+      return null;
+    }
+
+    const mockPgr = mockPGRs.find((item) => item.id === editId);
+    if (!mockPgr) {
+      return null;
+    }
+
+    const mockCompany = mockCompanies.find((item) => item.id === mockPgr.companyId);
+
+    return {
+      pgr: {
+        id: mockPgr.id,
+        company_id: mockPgr.companyId,
+        status: mockPgr.status,
+        revision: mockPgr.revision,
+        valid_until: mockPgr.validUntil === "-" ? null : mockPgr.validUntil,
+        created_at: mockPgr.createdAt,
+        updated_at: null,
+        characterization: null,
+        responsibilities: null,
+        risk_criteria: null,
+        control_measures: null,
+        training_plan: null,
+        monitoring: null,
+        responsible_name: null,
+        responsible_registry: null,
+        progress: mockPgr.progress,
+      },
+      company: mockCompany
+        ? {
+            id: mockCompany.id,
+            name: mockCompany.name,
+            trade_name: null,
+            cnpj: mockCompany.cnpj,
+            cnae: null,
+            address: null,
+            employees: mockCompany.employees,
+            risk_level: mockCompany.riskLevel,
+            legal_responsible: null,
+            created_at: mockCompany.lastPGR ?? new Date().toISOString(),
+          }
+        : null,
+      risks: [],
+      actions: [],
+    };
+  }, [editId, isEditing]);
+
+  const effectiveEditData = editData ?? fallbackEditData;
+
   const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, steps.length));
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
 
@@ -194,11 +246,11 @@ export default function PGRWizard() {
   };
 
   useEffect(() => {
-    if (!editData || hydrated) {
+    if (!effectiveEditData || hydrated) {
       return;
     }
 
-    const { pgr, company: editCompany, risks: editRisks, actions: editActions } = editData;
+    const { pgr, company: editCompany, risks: editRisks, actions: editActions } = effectiveEditData;
 
     setCompany({
       name: editCompany?.name ?? "",
@@ -258,7 +310,7 @@ export default function PGRWizard() {
 
     setEditCompanyId(editCompany?.id ?? null);
     setHydrated(true);
-  }, [editData, hydrated]);
+  }, [effectiveEditData, hydrated]);
 
   const handleSave = async (status: "draft" | "active") => {
     if (!supabaseReady) {
@@ -403,7 +455,7 @@ export default function PGRWizard() {
           <div className="text-sm text-muted-foreground">Carregando PGR...</div>
         )}
 
-        {isEditing && isErrorEdit && (
+        {isEditing && isErrorEdit && !fallbackEditData && (
           <Alert variant="destructive">
             <AlertTitle>Falha ao carregar PGR</AlertTitle>
             <AlertDescription>Verifique a conexão com o Supabase e tente novamente.</AlertDescription>

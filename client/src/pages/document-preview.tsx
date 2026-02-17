@@ -5,6 +5,8 @@ import { Link, useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { getPgrDetail } from "@/lib/pgr";
 import { isSupabaseConfigured } from "@/lib/supabase";
+import { mockCompanies, mockPGRs } from "@/lib/mock-data";
+import type { PgrDetail } from "@/lib/pgr";
 
 export default function DocumentPreview() {
   const [match, params] = useRoute("/pgr/:id/preview");
@@ -17,11 +19,55 @@ export default function DocumentPreview() {
     enabled: supabaseReady && Boolean(pgrId),
   });
 
+  const mockPgr = mockPGRs.find((item) => item.id === pgrId);
+  const mockCompany = mockCompanies.find((item) => item.id === mockPgr?.companyId);
+
+  const fallbackData: PgrDetail | null = mockPgr
+    ? {
+        pgr: {
+          id: mockPgr.id,
+          company_id: mockPgr.companyId,
+          status: mockPgr.status,
+          revision: mockPgr.revision,
+          valid_until: mockPgr.validUntil === "-" ? null : mockPgr.validUntil,
+          created_at: mockPgr.createdAt,
+          updated_at: null,
+          characterization: null,
+          responsibilities: null,
+          risk_criteria: null,
+          control_measures: null,
+          training_plan: null,
+          monitoring: null,
+          responsible_name: null,
+          responsible_registry: null,
+          progress: mockPgr.progress,
+        },
+        company: mockCompany
+          ? {
+              id: mockCompany.id,
+              name: mockCompany.name,
+              trade_name: null,
+              cnpj: mockCompany.cnpj,
+              cnae: null,
+              address: null,
+              employees: mockCompany.employees,
+              risk_level: mockCompany.riskLevel,
+              legal_responsible: null,
+              created_at: mockCompany.lastPGR ?? new Date().toISOString(),
+            }
+          : null,
+        risks: [],
+        actions: [],
+      }
+    : null;
+
+  const effectiveData: PgrDetail | null = data ?? fallbackData ?? null;
+
   const handlePrint = () => {
     window.print();
   };
 
-  if (!supabaseReady) {
+  if (!supabaseReady && !fallbackData) {
     return (
       <div className="min-h-screen bg-muted/50 p-6 md:p-12">
         <Alert>
@@ -42,7 +88,7 @@ export default function DocumentPreview() {
     );
   }
 
-  if (isError || !data) {
+  if (!effectiveData) {
     return (
       <div className="min-h-screen bg-muted/50 p-6 md:p-12">
         <Alert variant="destructive">
@@ -53,7 +99,7 @@ export default function DocumentPreview() {
     );
   }
 
-  const { pgr, company, risks, actions } = data;
+  const { pgr, company, risks, actions } = effectiveData;
 
   return (
     <div className="min-h-screen bg-muted/50 p-6 md:p-12 print:p-0 print:bg-white">
