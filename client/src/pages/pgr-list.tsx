@@ -112,7 +112,7 @@ export default function PGRList() {
             />
           </div>
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <Select defaultValue={initialStatusFilter} value={statusFilter} onValueChange={setStatusFilter}>
               <SelectTrigger className="w-full sm:w-[200px]">
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
