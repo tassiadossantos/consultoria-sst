@@ -1,3 +1,87 @@
+# Consultoria SST
+
+Plataforma para gestão de Saúde e Segurança do Trabalho.
+
+## Instalação
+
+1. Clone o repositório:
+	 ```bash
+	 git clone https://github.com/tassiadossantos/consultoria-sst.git
+	 ```
+2. Instale dependências:
+	 ```bash
+	 npm install
+	 ```
+3. Configure variáveis de ambiente em `.env`.
+4. Execute migrações SQL:
+	 ```bash
+	 psql < supabase/2026-02-17_settings.sql
+	 ```
+5. Rode o backend:
+	 ```bash
+	 npm run dev
+	 ```
+6. Rode o frontend:
+	 ```bash
+	 npm run dev:client
+	 ```
+
+## Testes
+
+- Testes unitários e de integração:
+	```bash
+	npm test
+	```
+- Testes end-to-end (Playwright):
+	```bash
+	npx playwright test client/e2e/
+	```
+- Testes de carga (k6):
+	```bash
+	k6 run client/e2e/carga.k6.js
+	```
+
+## Deploy
+
+- Configure variáveis de ambiente para produção.
+- Execute as migrações.
+- Rode scripts de build e deploy conforme sua infraestrutura.
+
+## CI/CD
+
+- Configure GitHub Actions com workflow:
+	```yaml
+	name: CI
+	on: [push, pull_request]
+	jobs:
+		test:
+			runs-on: ubuntu-latest
+			steps:
+				- uses: actions/checkout@v3
+				- name: Setup Node.js
+					uses: actions/setup-node@v3
+					with:
+						node-version: '18'
+				- run: npm install
+				- run: npm test
+	```
+
+## Releases
+
+- Crie tags para versões estáveis:
+	```bash
+	git tag v1.0.0
+	git push --tags
+	```
+
+## Organização
+
+- Use issues e projetos do GitHub para planejar novas funcionalidades e correções.
+- Revise permissões para garantir colaboração segura.
+
+---
+
+Para dúvidas ou sugestões, abra uma issue no repositório.
 # consultoria-sst
 
 Plataforma web para gestão de SST com foco em **PGR (Programa de Gerenciamento de Riscos)**, acompanhamento de treinamentos e organização de documentos derivados.
