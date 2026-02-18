@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const listPgrsMock = vi.hoisted(() => vi.fn());
@@ -11,6 +11,7 @@ vi.mock("@/lib/pgr", () => ({
 }));
 
 import PGRList from "./pgr-list";
+import { Router } from "wouter";
 
 function renderPage(path: string) {
   window.history.pushState({}, "", path);
@@ -23,9 +24,11 @@ function renderPage(path: string) {
   });
 
   return render(
-    <QueryClientProvider client={queryClient}>
-      <PGRList />
-    </QueryClientProvider>,
+    <Router>
+      <QueryClientProvider client={queryClient}>
+        <PGRList />
+      </QueryClientProvider>
+    </Router>,
   );
 }
 
@@ -33,6 +36,40 @@ describe("PGRList", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     deletePgrMock.mockResolvedValue(undefined);
+  });
+
+  it("shows error when API fails", async () => {
+    listPgrsMock.mockRejectedValue(new Error("Falha de rede"));
+    renderPage("/pgr");
+    expect(await screen.findByText(/Falha ao carregar PGRs/i)).toBeInTheDocument();
+  });
+
+  it("renders PGRs with missing company or status", async () => {
+    listPgrsMock.mockResolvedValue([
+      { id: "pgr-1", status: undefined, company: null, revision: 1, valid_until: null, created_at: "2024-01-15", progress: 100 },
+    ]);
+    renderPage("/pgr");
+    expect(await screen.findByText(/Empresa não informada/i)).toBeInTheDocument();
+    expect(screen.getByText(/Rascunho/i)).toBeInTheDocument();
+  });
+
+  it("navigates to edit PGR", async () => {
+    listPgrsMock.mockResolvedValue([
+      { id: "pgr-1", status: "draft", company: { id: "1", name: "Empresa Editar" }, revision: 0, valid_until: null, created_at: "2024-01-15", progress: 35 },
+    ]);
+    renderPage("/pgr");
+    const row = await screen.findByRole("row", { name: /Empresa Editar/i });
+    const editButton = within(row).getByRole("button", { name: /Editar PGR/i });
+    const editLink = editButton.closest("a");
+    expect(editLink).toHaveAttribute("href", "/pgr/pgr-1/editar");
+  });
+
+  it("filters by nonexistent status and shows empty", async () => {
+    listPgrsMock.mockResolvedValue([
+        { id: "pgr-1", status: "active", company: {id: "1", name: "Empresa"}, revision: 1, valid_until: null, created_at: "2024-01-15", progress: 100 },
+    ]);
+    renderPage("/pgr?status=draft");
+    expect(await screen.findByText(/Nenhum resultado encontrado/i)).toBeInTheDocument();
   });
 
   it("shows PGRs returned by the API filtered by active status", async () => {
@@ -59,7 +96,7 @@ describe("PGRList", () => {
 
     renderPage("/pgr?status=active");
 
-    expect(await screen.findByText("Metalúrgica Aço Forte Ltda")).toBeInTheDocument();
+    await screen.findByText("Metalúrgica Aço Forte Ltda");
     expect(screen.queryByText("Oficina Mecânica Rápida")).not.toBeInTheDocument();
   });
 
@@ -88,9 +125,9 @@ describe("PGRList", () => {
 
     renderPage("/pgr");
 
-    await screen.findByText("Metalúrgica Aço Forte Ltda");
+    const row = await screen.findByRole("row", { name: /Metalúrgica Aço Forte Ltda/i });
 
-    fireEvent.click(screen.getByRole("button", { name: "Excluir PGR" }));
+    fireEvent.click(within(row).getByRole("button", { name: "Excluir PGR" }));
     fireEvent.click(await screen.findByRole("button", { name: "Excluir" }));
 
     await waitFor(() => {

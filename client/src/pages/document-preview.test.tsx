@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getPgrDetailMock = vi.hoisted(() => vi.fn());
@@ -20,11 +20,13 @@ function renderPreview(path: string) {
     },
   });
 
-  return render(
+  const { unmount } = render(
     <QueryClientProvider client={queryClient}>
       <DocumentPreview />
     </QueryClientProvider>,
   );
+
+  return { unmount };
 }
 
 const fixture = {
@@ -65,6 +67,37 @@ const fixture = {
 describe("DocumentPreview", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("shows error when API fails", async () => {
+    getPgrDetailMock.mockRejectedValue(new Error("Falha de rede"));
+    renderPreview("/pgr/pgr-erro/preview");
+    expect(await screen.findByText(/Falha ao carregar o PGR/i)).toBeInTheDocument();
+  });
+
+  it("renders document with missing fields", async () => {
+    getPgrDetailMock.mockResolvedValue({
+      pgr: { ...fixture.pgr, responsibilities: undefined },
+      company: fixture.company,
+    });
+    renderPreview("/pgr/pgr-1/preview");
+
+    const identificationSection = await screen.findByRole("region", { name: /Identificação da Empresa/i });
+    expect(within(identificationSection).getByText(/Metalúrgica Aço Forte Ltda/i)).toBeInTheDocument();
+    
+    const responsibilitiesSection = await screen.findByRole("region", { name: /Responsabilidades/i });
+    expect(within(responsibilitiesSection).getByText(/Não informado/i)).toBeInTheDocument();
+  });
+
+  it("renders without crashing for draft and expired documents", async () => {
+    getPgrDetailMock.mockResolvedValue({ pgr: { ...fixture.pgr, status: "draft" }, company: fixture.company });
+    const { unmount } = renderPreview("/pgr/pgr-1/preview");
+    expect(await screen.findByText("PGR - Programa de Gerenciamento de Riscos")).toBeInTheDocument();
+    unmount(); // Clean up before next render
+
+    getPgrDetailMock.mockResolvedValue({ pgr: { ...fixture.pgr, status: "expired" }, company: fixture.company });
+    renderPreview("/pgr/pgr-1/preview");
+    expect(await screen.findByText("PGR - Programa de Gerenciamento de Riscos")).toBeInTheDocument();
   });
 
   it("renders PGR document when API returns data", async () => {

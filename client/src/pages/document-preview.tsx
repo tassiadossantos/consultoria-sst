@@ -40,6 +40,8 @@ export default function DocumentPreview() {
   }
 
   const { pgr, company, risks, actions } = data;
+  const safeRisks = Array.isArray(risks) ? risks : [];
+  const safeActions = Array.isArray(actions) ? actions : [];
 
   return (
     <div className="min-h-screen bg-muted/50 p-6 md:p-12 print:p-0 print:bg-white">
@@ -82,8 +84,8 @@ export default function DocumentPreview() {
         </header>
 
         {/* 1. Identificação */}
-        <section className="mb-8">
-          <h2 className="text-sm font-bold bg-slate-100 p-2 border-l-4 border-slate-800 mb-4 uppercase">1. Identificação da Empresa</h2>
+        <section className="mb-8" aria-labelledby="identificacao-header">
+          <h2 id="identificacao-header" className="text-sm font-bold bg-slate-100 p-2 border-l-4 border-slate-800 mb-4 uppercase">1. Identificação da Empresa</h2>
           <div className="grid grid-cols-2 gap-x-8 gap-y-4 text-sm">
             <div>
               <span className="block text-xs text-slate-500 uppercase">Razão Social</span>
@@ -117,8 +119,8 @@ export default function DocumentPreview() {
         </section>
 
         {/* 2.1 Responsabilidades */}
-        <section className="mb-8 break-inside-avoid">
-          <h2 className="text-sm font-bold bg-slate-100 p-2 border-l-4 border-slate-800 mb-4 uppercase">2.1 Responsabilidades</h2>
+        <section className="mb-8 break-inside-avoid" aria-labelledby="responsabilidades-header">
+          <h2 id="responsabilidades-header" className="text-sm font-bold bg-slate-100 p-2 border-l-4 border-slate-800 mb-4 uppercase">2.1 Responsabilidades</h2>
           <div className="text-sm text-slate-700 whitespace-pre-wrap">
             {pgr.responsibilities ?? "Não informado"}
           </div>
@@ -139,14 +141,14 @@ export default function DocumentPreview() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                {risks.length === 0 ? (
+                {safeRisks.length === 0 ? (
                   <tr>
                     <td className="p-2 text-center text-xs text-slate-500" colSpan={4}>
                       Nenhum risco registrado.
                     </td>
                   </tr>
                 ) : (
-                  risks.map((risk) => (
+                  safeRisks.map((risk) => (
                     <tr key={risk.id}>
                       <td className="p-2 border-r align-top">
                         <p className="font-bold">{risk.sector ?? "-"}</p>
@@ -203,14 +205,14 @@ export default function DocumentPreview() {
                 </tr>
               </thead>
               <tbody className="divide-y">
-                 {actions.length === 0 ? (
+                 {safeActions.length === 0 ? (
                    <tr>
                      <td className="p-2 text-center text-xs text-slate-500" colSpan={4}>
                        Nenhuma ação registrada.
                      </td>
                    </tr>
                  ) : (
-                   actions.map((action) => (
+                   safeActions.map((action) => (
                      <tr key={action.id}>
                        <td className="p-2 border-r">{action.action ?? "-"}</td>
                        <td className="p-2 border-r">{action.owner ?? "-"}</td>
