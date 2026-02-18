@@ -2,27 +2,35 @@ import React from "react";
 import { Layout } from "@/components/layout";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { 
-  BarChart3, 
-  AlertTriangle, 
-  FileCheck, 
-  Clock, 
-  Plus, 
+import {
+  AlertTriangle,
+  FileCheck,
+  Clock,
+  Plus,
   ChevronRight,
   TrendingUp,
   Users
 } from "lucide-react";
-import { mockPGRs, mockCompanies } from "@/lib/mock-data";
+import { fetchPgrs, fetchCompanies } from "@/lib/api";
+import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 
 export default function Dashboard() {
-  const activePGRs = mockPGRs.filter(p => p.status === "active").length;
-  const expiredPGRs = mockPGRs.filter(p => p.status === "expired").length;
-  const draftPGRs = mockPGRs.filter(p => p.status === "draft").length;
-  const totalCompanies = mockCompanies.length;
-  const companiesWithPgr = mockCompanies.filter((company) =>
-    mockPGRs.some((pgr) => pgr.companyId === company.id),
-  ).length;
+  const { data: pgrs = [], isLoading: isLoadingPgrs } = useQuery({
+    queryKey: ["pgrs"],
+    queryFn: fetchPgrs,
+  });
+
+  const { data: companiesData = [], isLoading: isLoadingCompanies } = useQuery({
+    queryKey: ["companies"],
+    queryFn: fetchCompanies,
+  });
+
+  const activePGRs = pgrs.filter(p => p.status === "active").length;
+  const expiredPGRs = pgrs.filter(p => p.status === "expired").length;
+  const draftPGRs = pgrs.filter(p => p.status === "draft").length;
+  const totalCompanies = companiesData.length;
+  const companiesWithPgr = new Set(pgrs.map(p => p.company?.id).filter(Boolean)).size;
   const draftSummaryText =
     draftPGRs === 0
       ? "Nenhum rascunho pendente"
@@ -43,21 +51,21 @@ export default function Dashboard() {
   const previousMonth = previousMonthDate.getMonth();
   const previousYear = previousMonthDate.getFullYear();
 
-  const activeCurrentMonth = mockPGRs.filter((pgr) => {
+  const activeCurrentMonth = pgrs.filter((pgr) => {
     if (pgr.status !== "active") {
       return false;
     }
 
-    const createdAt = new Date(pgr.createdAt);
+    const createdAt = new Date(pgr.created_at);
     return createdAt.getMonth() === currentMonth && createdAt.getFullYear() === currentYear;
   }).length;
 
-  const activePreviousMonth = mockPGRs.filter((pgr) => {
+  const activePreviousMonth = pgrs.filter((pgr) => {
     if (pgr.status !== "active") {
       return false;
     }
 
-    const createdAt = new Date(pgr.createdAt);
+    const createdAt = new Date(pgr.created_at);
     return createdAt.getMonth() === previousMonth && createdAt.getFullYear() === previousYear;
   }).length;
 
@@ -68,12 +76,12 @@ export default function Dashboard() {
       : `${activeDelta > 0 ? "+" : ""}${activeDelta} desde o último mês`;
 
   const msPerDay = 1000 * 60 * 60 * 24;
-  const expiredOver30Days = mockPGRs.filter((pgr) => {
-    if (pgr.status !== "expired" || pgr.validUntil === "-") {
+  const expiredOver30Days = pgrs.filter((pgr) => {
+    if (pgr.status !== "expired" || !pgr.valid_until) {
       return false;
     }
 
-    const validUntil = new Date(pgr.validUntil);
+    const validUntil = new Date(pgr.valid_until);
     const diffDays = Math.floor((now.getTime() - validUntil.getTime()) / msPerDay);
     return diffDays > 30;
   }).length;
@@ -84,16 +92,24 @@ export default function Dashboard() {
       : expiredOver30Days === 0
         ? `${expiredPGRs} vencido${expiredPGRs > 1 ? "s" : ""}`
         : `${expiredOver30Days} vencido${expiredOver30Days > 1 ? "s" : ""} há mais de 30 dias`;
-  
+
+  if (isLoadingPgrs || isLoadingCompanies) {
+    return (
+      <Layout>
+        <div className="text-sm text-muted-foreground p-6">Carregando dashboard...</div>
+      </Layout>
+    );
+  }
+
   return (
     <Layout>
       <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        
+
         {/* Header Section */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h2 className="text-3xl font-bold tracking-tight text-foreground">Visão Geral</h2>
-            <p className="text-muted-foreground mt-1">Bem-vinda de volta, Tassia. Você tem 3 pendências urgentes hoje.</p>
+            <p className="text-muted-foreground mt-1">Bem-vinda de volta, Tassia.</p>
           </div>
           <Link href="/pgr/novo">
             <Button className="shadow-lg shadow-primary/20">
@@ -167,7 +183,7 @@ export default function Dashboard() {
 
         {/* Main Content Area */}
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7">
-          
+
           {/* Recent Activity / List */}
           <Card className="col-span-4 shadow-sm">
             <CardHeader>
@@ -178,7 +194,7 @@ export default function Dashboard() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {mockPGRs.map((pgr) => {
+                {pgrs.map((pgr) => {
                   const pgrHref =
                     pgr.status === "draft"
                       ? `/pgr/${pgr.id}/editar`
@@ -198,8 +214,8 @@ export default function Dashboard() {
                             }`}
                           />
                           <div>
-                            <p className="font-medium group-hover:text-primary transition-colors">{pgr.companyName}</p>
-                            <p className="text-sm text-muted-foreground">Rev. {pgr.revision} • Atualizado em {new Date(pgr.createdAt).toLocaleDateString("pt-BR")}</p>
+                            <p className="font-medium group-hover:text-primary transition-colors">{pgr.company?.name ?? "Empresa"}</p>
+                            <p className="text-sm text-muted-foreground">Rev. {pgr.revision} • Atualizado em {new Date(pgr.created_at).toLocaleDateString("pt-BR")}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
@@ -208,7 +224,7 @@ export default function Dashboard() {
                               {pgr.status === "active" ? "Vigente" : pgr.status === "expired" ? "Vencido" : "Rascunho"}
                             </p>
                             <p className="text-xs text-muted-foreground">
-                              {pgr.status === "active" ? `Até ${new Date(pgr.validUntil).toLocaleDateString("pt-BR")}` : "Ação Necessária"}
+                              {pgr.status === "active" && pgr.valid_until ? `Até ${new Date(pgr.valid_until).toLocaleDateString("pt-BR")}` : "Ação Necessária"}
                             </p>
                           </div>
                           <div className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground group-hover:text-primary">

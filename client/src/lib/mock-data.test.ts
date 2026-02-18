@@ -2,15 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import {
   calculateRiskLevel,
-  mockCompanies,
-  mockPGRs,
   riskTypes,
 } from "./mock-data";
 
 describe("mock-data", () => {
-  it("has seed data for companies, pgrs and risk types", () => {
-    expect(mockCompanies.length).toBeGreaterThan(0);
-    expect(mockPGRs.length).toBeGreaterThan(0);
+  it("has risk types", () => {
     expect(riskTypes.length).toBe(5);
   });
 

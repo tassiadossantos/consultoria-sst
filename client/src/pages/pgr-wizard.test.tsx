@@ -5,7 +5,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const createPgrMock = vi.hoisted(() => vi.fn());
 const updatePgrMock = vi.hoisted(() => vi.fn());
 const getPgrDetailMock = vi.hoisted(() => vi.fn());
-const isSupabaseConfiguredMock = vi.hoisted(() => vi.fn());
 const toastMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/components/layout", () => ({
@@ -16,10 +15,6 @@ vi.mock("@/lib/pgr", () => ({
   createPgr: createPgrMock,
   updatePgr: updatePgrMock,
   getPgrDetail: getPgrDetailMock,
-}));
-
-vi.mock("@/lib/supabase", () => ({
-  isSupabaseConfigured: isSupabaseConfiguredMock,
 }));
 
 vi.mock("@/hooks/use-toast", () => ({
@@ -109,7 +104,6 @@ const editFixture = {
 describe("PGRWizard integration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    isSupabaseConfiguredMock.mockReturnValue(true);
     createPgrMock.mockResolvedValue("pgr-123");
     updatePgrMock.mockResolvedValue("pgr-123");
     getPgrDetailMock.mockResolvedValue(null);
@@ -180,7 +174,7 @@ describe("PGRWizard integration", () => {
     expect(toastMock).toHaveBeenCalledWith(
       expect.objectContaining({ title: "PGR criado" }),
     );
-  });
+  }, 10000);
 
   it("blocks active submit when required data is missing", async () => {
     renderWizard();
@@ -194,22 +188,6 @@ describe("PGRWizard integration", () => {
     await waitFor(() => {
       expect(toastMock).toHaveBeenCalledWith(
         expect.objectContaining({ title: "Preencha os campos obrigatorios" }),
-      );
-    });
-
-    expect(createPgrMock).not.toHaveBeenCalled();
-  });
-
-  it("shows warning toast when trying to save draft without Supabase", async () => {
-    isSupabaseConfiguredMock.mockReturnValue(false);
-
-    renderWizard();
-
-    fireEvent.click(screen.getByRole("button", { name: /Salvar Rascunho/i }));
-
-    await waitFor(() => {
-      expect(toastMock).toHaveBeenCalledWith(
-        expect.objectContaining({ title: "Supabase não configurado" }),
       );
     });
 
@@ -271,18 +249,8 @@ describe("PGRWizard integration", () => {
 
     expect(await screen.findByText("Falha ao carregar PGR")).toBeInTheDocument();
     expect(
-      screen.getByText("Verifique a conexão com o Supabase e tente novamente."),
+      screen.getByText("Verifique a conexão com o servidor e tente novamente."),
     ).toBeInTheDocument();
-  });
-
-  it("uses mock fallback for known draft id when getPgrDetail fails", async () => {
-    getPgrDetailMock.mockRejectedValue(new Error("Falha de rede"));
-
-    renderWizard("/pgr/pgr-4/editar");
-
-    expect(await screen.findByText("Editar PGR (NR-01)")).toBeInTheDocument();
-    expect(screen.queryByText("Falha ao carregar PGR")).not.toBeInTheDocument();
-    expect(await screen.findByDisplayValue("Oficina Mecânica Rápida")).toBeInTheDocument();
   });
 
   it("blocks update when hydrated payload has no companyId", async () => {

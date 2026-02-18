@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useAuth } from "@/lib/auth-context";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -23,6 +24,7 @@ export function Layout({ children }: LayoutProps) {
   const [location] = useLocation();
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
   const isMobile = useIsMobile();
+  const { logout } = useAuth();
 
   const navigation = [
     { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -111,6 +113,9 @@ export function Layout({ children }: LayoutProps) {
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" className="hidden sm:flex">
               Ajuda
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => void logout()}>
+              Sair
             </Button>
           </div>
         </header>

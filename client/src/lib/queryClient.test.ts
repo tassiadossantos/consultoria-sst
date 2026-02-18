@@ -1,9 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { apiRequest, getQueryFn } from "./queryClient";
+import { clearAuthToken, getAuthToken, setAuthToken } from "./auth-token";
 
 describe("apiRequest", () => {
   afterEach(() => {
+    clearAuthToken();
+    window.history.replaceState({}, "", "/");
     vi.restoreAllMocks();
   });
 
@@ -30,6 +33,21 @@ describe("apiRequest", () => {
     await expect(apiRequest("POST", "/api/items", { name: "x" })).rejects.toThrow(
       "400: bad request",
     );
+  });
+
+  it("clears auth token and redirects to login on 401", async () => {
+    setAuthToken("token-123");
+    window.history.replaceState({}, "", "/empresas");
+
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response("unauthorized", { status: 401, statusText: "Unauthorized" }),
+    );
+
+    await expect(apiRequest("GET", "/api/companies")).rejects.toThrow("401: unauthorized");
+
+    expect(getAuthToken()).toBeNull();
+    expect(window.location.pathname).toBe("/login");
+    expect(window.location.search).toContain("redirect=%2Fempresas");
   });
 });
 

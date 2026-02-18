@@ -3,14 +3,9 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getPgrDetailMock = vi.hoisted(() => vi.fn());
-const isSupabaseConfiguredMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/pgr", () => ({
   getPgrDetail: getPgrDetailMock,
-}));
-
-vi.mock("@/lib/supabase", () => ({
-  isSupabaseConfigured: isSupabaseConfiguredMock,
 }));
 
 import DocumentPreview from "./document-preview";
@@ -32,14 +27,48 @@ function renderPreview(path: string) {
   );
 }
 
+const fixture = {
+  pgr: {
+    id: "pgr-1",
+    company_id: "1",
+    status: "active",
+    revision: 2,
+    valid_until: "2026-01-15",
+    created_at: "2024-01-15",
+    updated_at: null,
+    characterization: "Caracterização teste",
+    responsibilities: "Responsabilidades",
+    risk_criteria: "Critérios",
+    control_measures: "Medidas",
+    training_plan: "Treinamento",
+    monitoring: "Monitoramento",
+    responsible_name: "Técnico Teste",
+    responsible_registry: "00.1234/SP",
+    progress: 100,
+  },
+  company: {
+    id: "1",
+    name: "Metalúrgica Aço Forte Ltda",
+    trade_name: null,
+    cnpj: "12.345.678/0001-90",
+    cnae: null,
+    address: "Rua Teste, 100",
+    employees: 45,
+    risk_level: 3,
+    legal_responsible: null,
+    created_at: "2024-01-15",
+  },
+  risks: [],
+  actions: [],
+};
+
 describe("DocumentPreview", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    isSupabaseConfiguredMock.mockReturnValue(true);
   });
 
-  it("falls back to mock data when fetch fails for a known mock PGR id", async () => {
-    getPgrDetailMock.mockRejectedValue(new Error("not found"));
+  it("renders PGR document when API returns data", async () => {
+    getPgrDetailMock.mockResolvedValue(fixture);
 
     renderPreview("/pgr/pgr-1/preview");
 
@@ -51,14 +80,13 @@ describe("DocumentPreview", () => {
       await screen.findByText("PGR - Programa de Gerenciamento de Riscos"),
     ).toBeInTheDocument();
     expect(screen.getAllByText("Metalúrgica Aço Forte Ltda").length).toBeGreaterThan(0);
-    expect(screen.queryByText("Falha ao carregar o PGR")).not.toBeInTheDocument();
   });
 
-  it("shows supabase warning when not configured and no mock matches", () => {
-    isSupabaseConfiguredMock.mockReturnValue(false);
+  it("shows error when API call fails", async () => {
+    getPgrDetailMock.mockRejectedValue(new Error("not found"));
 
     renderPreview("/pgr/id-inexistente/preview");
 
-    expect(screen.getByText("Supabase não configurado")).toBeInTheDocument();
+    expect(await screen.findByText("Falha ao carregar o PGR")).toBeInTheDocument();
   });
 });

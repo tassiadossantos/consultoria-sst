@@ -26,12 +26,12 @@ import {
   Activity
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { riskTypes, calculateRiskLevel, mockCompanies, mockPGRs } from "@/lib/mock-data";
+import { riskTypes, calculateRiskLevel } from "@/lib/mock-data";
 import { createPgr, getPgrDetail, updatePgr } from "@/lib/pgr";
-import { isSupabaseConfigured } from "@/lib/supabase";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useLocation, useRoute } from "wouter";
+import type { ActionStatus, PgrRiskLevel, RiskType } from "@shared/schema";
 
 type RiskItem = {
   id: string;
@@ -40,12 +40,12 @@ type RiskItem = {
   atividade: string;
   perigo: string;
   risco: string;
-  tipo: string;
+  tipo: RiskType;
   probabilidade: string;
   gravidade: string;
   medidas: string;
   epi: string;
-  level: { label: string; class: string; score: number };
+  level: { label: PgrRiskLevel; class: string; score: number };
 };
 
 type ActionItem = {
@@ -53,8 +53,31 @@ type ActionItem = {
   action: string;
   owner: string;
   dueDate: string;
-  status: string;
+  status: ActionStatus;
 };
+
+function isActionStatus(value: unknown): value is ActionStatus {
+  return value === "PENDENTE"
+    || value === "EM_ANDAMENTO"
+    || value === "CONCLUIDO"
+    || value === "CANCELADO";
+}
+
+function isRiskType(value: unknown): value is RiskType {
+  return value === "fisico"
+    || value === "quimico"
+    || value === "biologico"
+    || value === "ergonomico"
+    || value === "acidente";
+}
+
+function toPgrRiskLevel(value: string): PgrRiskLevel {
+  if (value === "Baixo" || value === "Médio" || value === "Alto") {
+    return value;
+  }
+
+  return "Baixo";
+}
 
 const steps = [
   { id: 1, title: "Empresa", icon: Building2, description: "Dados e objetivo" },
@@ -73,7 +96,6 @@ export default function PGRWizard() {
   const editId = editParams?.id;
   const isEditing = Boolean(editMatch && editId);
   const { toast } = useToast();
-  const supabaseReady = isSupabaseConfigured();
   const [hydrated, setHydrated] = useState(false);
   const [editCompanyId, setEditCompanyId] = useState<string | null>(null);
 
@@ -99,7 +121,18 @@ export default function PGRWizard() {
   const [responsible, setResponsible] = useState({ name: "", registry: "" });
 
   const [risks, setRisks] = useState<RiskItem[]>([]);
-  const [newRisk, setNewRisk] = useState({
+  const [newRisk, setNewRisk] = useState<{
+    setor: string;
+    funcao: string;
+    atividade: string;
+    perigo: string;
+    risco: string;
+    tipo: RiskType;
+    probabilidade: string;
+    gravidade: string;
+    medidas: string;
+    epi: string;
+  }>({
     setor: "",
     funcao: "",
     atividade: "",
@@ -113,7 +146,12 @@ export default function PGRWizard() {
   });
 
   const [actions, setActions] = useState<ActionItem[]>([]);
-  const [newAction, setNewAction] = useState({
+  const [newAction, setNewAction] = useState<{
+    action: string;
+    owner: string;
+    dueDate: string;
+    status: ActionStatus;
+  }>({
     action: "",
     owner: "",
     dueDate: "",
@@ -143,60 +181,8 @@ export default function PGRWizard() {
   const { data: editData, isLoading: isLoadingEdit, isError: isErrorEdit } = useQuery({
     queryKey: ["pgr-edit", editId],
     queryFn: () => getPgrDetail(editId ?? ""),
-    enabled: supabaseReady && isEditing,
+    enabled: isEditing,
   });
-
-  const fallbackEditData = useMemo(() => {
-    if (!isEditing || !editId) {
-      return null;
-    }
-
-    const mockPgr = mockPGRs.find((item) => item.id === editId);
-    if (!mockPgr) {
-      return null;
-    }
-
-    const mockCompany = mockCompanies.find((item) => item.id === mockPgr.companyId);
-
-    return {
-      pgr: {
-        id: mockPgr.id,
-        company_id: mockPgr.companyId,
-        status: mockPgr.status,
-        revision: mockPgr.revision,
-        valid_until: mockPgr.validUntil === "-" ? null : mockPgr.validUntil,
-        created_at: mockPgr.createdAt,
-        updated_at: null,
-        characterization: null,
-        responsibilities: null,
-        risk_criteria: null,
-        control_measures: null,
-        training_plan: null,
-        monitoring: null,
-        responsible_name: null,
-        responsible_registry: null,
-        progress: mockPgr.progress,
-      },
-      company: mockCompany
-        ? {
-            id: mockCompany.id,
-            name: mockCompany.name,
-            trade_name: null,
-            cnpj: mockCompany.cnpj,
-            cnae: null,
-            address: null,
-            employees: mockCompany.employees,
-            risk_level: mockCompany.riskLevel,
-            legal_responsible: null,
-            created_at: mockCompany.lastPGR ?? new Date().toISOString(),
-          }
-        : null,
-      risks: [],
-      actions: [],
-    };
-  }, [editId, isEditing]);
-
-  const effectiveEditData = editData ?? fallbackEditData;
 
   const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, steps.length));
   const prevStep = () => setCurrentStep((prev) => Math.max(prev - 1, 1));
@@ -208,7 +194,7 @@ export default function PGRWizard() {
 
     setRisks((prev) => [
       ...prev,
-      { ...newRisk, id: String(Date.now()), level },
+      { ...newRisk, id: String(Date.now()), level: { ...level, label: toPgrRiskLevel(level.label) } },
     ]);
     setDialogOpen(false);
     setNewRisk({
@@ -246,11 +232,11 @@ export default function PGRWizard() {
   };
 
   useEffect(() => {
-    if (!effectiveEditData || hydrated) {
+    if (!editData || hydrated) {
       return;
     }
 
-    const { pgr, company: editCompany, risks: editRisks, actions: editActions } = effectiveEditData;
+    const { pgr, company: editCompany, risks: editRisks, actions: editActions } = editData;
 
     setCompany({
       name: editCompany?.name ?? "",
@@ -289,12 +275,15 @@ export default function PGRWizard() {
         atividade: risk.activity ?? "",
         perigo: risk.hazard ?? "",
         risco: risk.risk ?? "",
-        tipo: risk.risk_type ?? "fisico",
+        tipo: isRiskType(risk.risk_type) ? risk.risk_type : "fisico",
         probabilidade: risk.probability?.toString() ?? "1",
         gravidade: risk.severity?.toString() ?? "1",
         medidas: risk.controls ?? "",
         epi: risk.epi ?? "",
-        level: calculateRiskLevel(risk.probability ?? 1, risk.severity ?? 1),
+        level: {
+          ...calculateRiskLevel(risk.probability ?? 1, risk.severity ?? 1),
+          label: toPgrRiskLevel(risk.risk_level ?? "Baixo"),
+        },
       }))
     );
 
@@ -304,23 +293,15 @@ export default function PGRWizard() {
         action: action.action ?? "",
         owner: action.owner ?? "",
         dueDate: action.due_date ?? "",
-        status: action.status ?? "PENDENTE",
+        status: isActionStatus(action.status) ? action.status : "PENDENTE",
       }))
     );
 
     setEditCompanyId(editCompany?.id ?? null);
     setHydrated(true);
-  }, [effectiveEditData, hydrated]);
+  }, [editData, hydrated]);
 
   const handleSave = async (status: "draft" | "active") => {
-    if (!supabaseReady) {
-      toast({
-        title: "Supabase não configurado",
-        description: "Preencha o .env para salvar o PGR.",
-      });
-      return;
-    }
-
     if (status === "active") {
       const missing: string[] = [];
       if (!company.name.trim()) missing.push("Razao Social");
@@ -442,23 +423,14 @@ export default function PGRWizard() {
           </div>
         </div>
 
-        {!supabaseReady && (
-          <Alert>
-            <AlertTitle>Supabase não configurado</AlertTitle>
-            <AlertDescription>
-              Preencha o arquivo .env com VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY para salvar.
-            </AlertDescription>
-          </Alert>
-        )}
-
         {isEditing && isLoadingEdit && (
           <div className="text-sm text-muted-foreground">Carregando PGR...</div>
         )}
 
-        {isEditing && isErrorEdit && !fallbackEditData && (
+        {isEditing && isErrorEdit && (
           <Alert variant="destructive">
             <AlertTitle>Falha ao carregar PGR</AlertTitle>
-            <AlertDescription>Verifique a conexão com o Supabase e tente novamente.</AlertDescription>
+            <AlertDescription>Verifique a conexão com o servidor e tente novamente.</AlertDescription>
           </Alert>
         )}
 
@@ -679,7 +651,11 @@ export default function PGRWizard() {
                               <Label>Tipo de Risco</Label>
                               <Select
                                 value={newRisk.tipo}
-                                onValueChange={(v) => setNewRisk({ ...newRisk, tipo: v })}
+                                onValueChange={(v) => {
+                                  if (isRiskType(v)) {
+                                    setNewRisk({ ...newRisk, tipo: v });
+                                  }
+                                }}
                               >
                                 <SelectTrigger>
                                   <SelectValue />
@@ -942,7 +918,14 @@ Ex: EPCs instalados, treinamentos obrigatórios, checklists, bloqueios."
                     </div>
                     <div className="space-y-2">
                       <Label>Status</Label>
-                      <Select value={newAction.status} onValueChange={(v) => setNewAction({ ...newAction, status: v })}>
+                      <Select
+                        value={newAction.status}
+                        onValueChange={(v) => {
+                          if (isActionStatus(v)) {
+                            setNewAction({ ...newAction, status: v });
+                          }
+                        }}
+                      >
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>

@@ -5,20 +5,45 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, FileText, Printer, Pencil } from "lucide-react";
+import { Search, Plus, FileText, Printer, Pencil, Trash2 } from "lucide-react";
 import { Link } from "wouter";
-import { useQuery } from "@tanstack/react-query";
-import { isSupabaseConfigured } from "@/lib/supabase";
-import { listPgrs, type PgrListItem } from "@/lib/pgr";
-import { mockCompanies, mockPGRs } from "@/lib/mock-data";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { deletePgr, listPgrs } from "@/lib/pgr";
+import { useToast } from "@/hooks/use-toast";
+import type { PgrListItem } from "@shared/schema";
 
 export default function PGRList() {
-  const supabaseReady = isSupabaseConfigured();
-  const { data: supabasePgrs = [], isLoading, isError } = useQuery({
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { data: pgrs = [], isLoading, isError } = useQuery({
     queryKey: ["pgrs"],
     queryFn: listPgrs,
-    enabled: supabaseReady,
+  });
+  const { mutateAsync: deletePgrAsync, isPending: isDeleting } = useMutation({
+    mutationFn: deletePgr,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["pgrs"] });
+      toast({ title: "PGR excluído", description: "O registro foi removido com sucesso." });
+    },
+    onError: () => {
+      toast({
+        title: "Falha ao excluir",
+        description: "Não foi possível excluir o PGR. Tente novamente.",
+        variant: "destructive",
+      });
+    },
   });
   const [searchTerm, setSearchTerm] = useState("");
   const initialStatusFilter = useMemo(() => {
@@ -28,32 +53,6 @@ export default function PGRList() {
       : "all";
   }, []);
   const [statusFilter, setStatusFilter] = useState(initialStatusFilter);
-
-  const fallbackPgrs: PgrListItem[] = useMemo(
-    () =>
-      mockPGRs.map((item) => {
-        const company = mockCompanies.find((c) => c.id === item.companyId);
-
-        return {
-          id: item.id,
-          status: item.status,
-          revision: item.revision,
-          valid_until: item.validUntil === "-" ? null : item.validUntil,
-          created_at: item.createdAt,
-          progress: item.progress,
-          company: company
-            ? {
-                id: company.id,
-                name: company.name,
-                cnpj: company.cnpj,
-              }
-            : null,
-        };
-      }),
-    [],
-  );
-
-  const pgrs = supabaseReady && supabasePgrs.length > 0 ? supabasePgrs : fallbackPgrs;
 
   const filteredPgrs = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
@@ -93,19 +92,10 @@ export default function PGRList() {
           </Link>
         </div>
 
-        {!supabaseReady && (
-          <Alert>
-            <AlertTitle>Supabase não configurado</AlertTitle>
-            <AlertDescription>
-              Preencha o arquivo .env com VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY para carregar os PGRs.
-            </AlertDescription>
-          </Alert>
-        )}
-
         {isError && (
           <Alert variant="destructive">
             <AlertTitle>Falha ao carregar PGRs</AlertTitle>
-            <AlertDescription>Verifique a conexão com o Supabase e tente novamente.</AlertDescription>
+            <AlertDescription>Verifique a conexão com o servidor e tente novamente.</AlertDescription>
           </Alert>
         )}
 
@@ -113,9 +103,9 @@ export default function PGRList() {
         <div className="flex flex-col sm:flex-row gap-4 items-center bg-card p-4 rounded-lg border shadow-sm">
           <div className="relative w-full sm:w-96">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input 
-              type="search" 
-              placeholder="Buscar por empresa, CNPJ ou ID..." 
+            <Input
+              type="search"
+              placeholder="Buscar por empresa, CNPJ ou ID..."
               className="pl-9 bg-background"
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
@@ -137,7 +127,7 @@ export default function PGRList() {
           </div>
         </div>
 
-        {isLoading && supabaseReady && (
+        {isLoading && (
           <div className="text-sm text-muted-foreground">Carregando PGRs...</div>
         )}
 
@@ -225,6 +215,30 @@ export default function PGRList() {
                             <Printer className="h-4 w-4" />
                           </Button>
                         </Link>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button variant="ghost" size="icon" title="Excluir PGR">
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>Excluir PGR</AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Esta ação não pode ser desfeita. Deseja realmente excluir este PGR?
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => void deletePgrAsync(pgr.id)}
+                                disabled={isDeleting}
+                              >
+                                {isDeleting ? "Excluindo..." : "Excluir"}
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </TableCell>
                   </TableRow>

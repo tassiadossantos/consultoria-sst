@@ -46,6 +46,21 @@ vi.mock("@/components/ui/tooltip", () => ({
   TooltipProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
 }));
 
+vi.mock("@/lib/auth-context", () => ({
+  AuthProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
+  useAuth: () => ({
+    user: { id: "user-1", username: "tester" },
+    isLoading: false,
+    isAuthenticated: true,
+    login: vi.fn(),
+    logout: vi.fn(),
+  }),
+}));
+
+vi.mock("@/pages/login", () => ({
+  default: () => <div>Login Page</div>,
+}));
+
 import App from "./App";
 
 const setPath = (path: string) => {

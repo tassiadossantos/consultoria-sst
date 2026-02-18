@@ -9,57 +9,21 @@ import { GraduationCap, Users, Calendar, AlertTriangle, Plus, Search } from "luc
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Link } from "wouter";
+import { fetchTrainings, createTrainingApi } from "@/lib/api";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import type { Training, TrainingStatus } from "@shared/schema";
 
-type TrainingItem = {
-  id: string;
-  training: string;
-  company: string;
-  date: string;
-  instructor: string;
-  participantsLabel: string;
-  status: "Vencendo" | "Agendado" | "Vencido" | "Realizado";
-};
-
-const trainingsData: TrainingItem[] = [
-  {
-    id: "nr35-realizado-metalurgica",
-    training: "NR-35 Trabalho em Altura",
-    company: "Metalúrgica Aço Forte",
-    date: "15/02/2026",
-    instructor: "João Dias",
-    participantsLabel: "12",
-    status: "Realizado",
-  },
-  {
-    id: "nr35-renovacao-metalurgica",
-    training: "NR-35 Trabalho em Altura (Renovação)",
-    company: "Metalúrgica Aço Forte",
-    date: "17/02/2026",
-    instructor: "João Dias",
-    participantsLabel: "Ana Souza, Bruno Lima, Carla Santos (3)",
-    status: "Vencendo",
-  },
-  {
-    id: "nr10-silva-souza",
-    training: "NR-10 Segurança em Eletricidade",
-    company: "Construções Silva & Souza",
-    date: "20/02/2026",
-    instructor: "Carlos Eng.",
-    participantsLabel: "8",
-    status: "Agendado",
-  },
-  {
-    id: "nr05-padaria",
-    training: "NR-05 CIPA",
-    company: "Padaria Pão Quente",
-    date: "10/01/2026",
-    instructor: "Maria Tec.",
-    participantsLabel: "4",
-    status: "Vencido",
-  },
-];
+function capitalize(s: string): string {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
 
 export default function Trainings() {
+  const queryClient = useQueryClient();
+  const { data: trainings = [], isLoading } = useQuery({
+    queryKey: ["trainings"],
+    queryFn: fetchTrainings,
+  });
+
   const initialStatus = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
     const value = params.get("status")?.toLowerCase();
@@ -81,38 +45,69 @@ export default function Trainings() {
   const [searchTerm, setSearchTerm] = useState(initialSearch);
   const [statusFilter] = useState(initialStatus);
 
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [form, setForm] = useState({
+    title: "",
+    company_id: "",
+    training_date: "",
+    instructor: "",
+  });
+
+  const { mutateAsync, isPending } = useMutation({
+    mutationFn: createTrainingApi,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["trainings"] });
+      setDialogOpen(false);
+      setForm({ title: "", company_id: "", training_date: "", instructor: "" });
+    },
+  });
+
+  const handleSave = async () => {
+    if (!form.title.trim() || !form.training_date) return;
+    await mutateAsync({
+      title: form.title,
+      training_date: form.training_date,
+      instructor: form.instructor || null,
+      company_id: form.company_id || null,
+      status: "agendado",
+    });
+  };
+
   const realizedThisMonth = useMemo(() => {
     const now = new Date();
     const currentMonth = now.getMonth();
     const currentYear = now.getFullYear();
 
-    const parseParticipants = (participantsLabel: string) => {
-      const match = participantsLabel.match(/\d+/);
-      return match ? Number(match[0]) : 0;
-    };
-
-    return trainingsData
+    return trainings
       .filter((item) => {
-        if (item.status !== "Realizado") {
+        if (item.status !== "realizado") {
           return false;
         }
 
-        const [day, month, year] = item.date.split("/").map(Number);
-        const trainingDate = new Date(year, month - 1, day);
-
+        const trainingDate = new Date(item.training_date);
         if (Number.isNaN(trainingDate.getTime())) {
           return false;
         }
 
         return trainingDate.getMonth() === currentMonth && trainingDate.getFullYear() === currentYear;
       })
-      .reduce((total, item) => total + parseParticipants(item.participantsLabel), 0);
-  }, []);
+      .reduce((total, item) => total + (item.participants_count ?? 0), 0);
+  }, [trainings]);
+
+  const scheduledCount = useMemo(
+    () => trainings.filter((t) => t.status === "agendado").length,
+    [trainings],
+  );
+
+  const expiredOrExpiringCount = useMemo(
+    () => trainings.filter((t) => t.status === "vencido" || t.status === "vencendo").length,
+    [trainings],
+  );
 
   const filteredTrainings = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    const trainingsByStatus = trainingsData.filter(
-      (item) => statusFilter === "all" || item.status.toLowerCase() === statusFilter,
+    const trainingsByStatus = trainings.filter(
+      (item) => statusFilter === "all" || item.status === statusFilter,
     );
 
     if (!term) {
@@ -124,11 +119,10 @@ export default function Trainings() {
     return trainingsByStatus.filter((item) =>
       terms.every((token) =>
         [
-          item.training,
-          item.company,
-          item.date,
-          item.instructor,
-          item.participantsLabel,
+          item.title,
+          item.training_date,
+          item.instructor ?? "",
+          item.participants_label ?? "",
           item.status,
         ]
           .join(" ")
@@ -136,26 +130,26 @@ export default function Trainings() {
           .includes(token),
       ),
     );
-  }, [searchTerm, statusFilter]);
+  }, [trainings, searchTerm, statusFilter]);
 
-  const statusClassName = (status: TrainingItem["status"]) => {
-    if (status === "Realizado") {
+  const statusClassName = (status: TrainingStatus) => {
+    if (status === "realizado") {
       return "bg-emerald-100 text-emerald-800 hover:bg-emerald-100";
     }
 
-    if (status === "Agendado") {
+    if (status === "agendado") {
       return "text-blue-600 border-blue-200";
     }
 
-    if (status === "Vencendo") {
+    if (status === "vencendo") {
       return "bg-amber-100 text-amber-800 hover:bg-amber-100 border-amber-200";
     }
 
     return "bg-red-100 text-red-800 hover:bg-red-100 border-red-200";
   };
 
-  const statusVariant = (status: TrainingItem["status"]) =>
-    status === "Agendado" ? "outline" : status === "Vencido" ? "destructive" : "secondary";
+  const statusVariant = (status: TrainingStatus) =>
+    status === "agendado" ? "outline" : status === "vencido" ? "destructive" : "secondary";
 
   return (
     <Layout>
@@ -167,7 +161,7 @@ export default function Trainings() {
               Controle de vencimentos, listas de presença e certificados.
             </p>
           </div>
-          <Dialog>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="mr-2 h-4 w-4" /> Novo Treinamento
@@ -184,27 +178,37 @@ export default function Trainings() {
               <div className="grid gap-4 py-2">
                 <div className="space-y-2">
                   <Label>Treinamento</Label>
-                  <Input placeholder="Ex: NR-35 Trabalho em Altura" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Empresa</Label>
-                  <Input placeholder="Ex: Metalúrgica Aço Forte" />
+                  <Input
+                    placeholder="Ex: NR-35 Trabalho em Altura"
+                    value={form.title}
+                    onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Data</Label>
-                    <Input type="date" />
+                    <Input
+                      type="date"
+                      value={form.training_date}
+                      onChange={(e) => setForm({ ...form, training_date: e.target.value })}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Instrutor</Label>
-                    <Input placeholder="Ex: João Dias" />
+                    <Input
+                      placeholder="Ex: João Dias"
+                      value={form.instructor}
+                      onChange={(e) => setForm({ ...form, instructor: e.target.value })}
+                    />
                   </div>
                 </div>
               </div>
 
               <DialogFooter>
-                <Button variant="outline">Cancelar</Button>
-                <Button>Salvar</Button>
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
+                <Button onClick={handleSave} disabled={isPending}>
+                  {isPending ? "Salvando..." : "Salvar"}
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -225,11 +229,11 @@ export default function Trainings() {
           </Link>
           <Card>
              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Colaboradores</CardTitle>
+              <CardTitle className="text-sm font-medium">Total Treinamentos</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">450</div>
+              <div className="text-2xl font-bold">{trainings.length}</div>
             </CardContent>
           </Card>
            <Card>
@@ -238,7 +242,7 @@ export default function Trainings() {
               <Calendar className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold">5</div>
+              <div className="text-2xl font-bold">{scheduledCount}</div>
             </CardContent>
           </Card>
            <Card>
@@ -247,7 +251,7 @@ export default function Trainings() {
               <AlertTriangle className="h-4 w-4 text-destructive" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-destructive">8</div>
+              <div className="text-2xl font-bold text-destructive">{expiredOrExpiringCount}</div>
             </CardContent>
           </Card>
         </div>
@@ -272,7 +276,6 @@ export default function Trainings() {
               <TableHeader>
                 <TableRow>
                   <TableHead>Treinamento</TableHead>
-                  <TableHead>Empresa</TableHead>
                   <TableHead>Data</TableHead>
                   <TableHead>Instrutor</TableHead>
                   <TableHead>Participantes</TableHead>
@@ -280,23 +283,30 @@ export default function Trainings() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredTrainings.length === 0 ? (
+                {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
+                      Carregando treinamentos...
+                    </TableCell>
+                  </TableRow>
+                ) : filteredTrainings.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={5} className="text-center text-muted-foreground">
                       Nenhum treinamento encontrado para a busca atual.
                     </TableCell>
                   </TableRow>
                 ) : (
                   filteredTrainings.map((training) => (
                     <TableRow key={training.id}>
-                      <TableCell className="font-medium">{training.training}</TableCell>
-                      <TableCell>{training.company}</TableCell>
-                      <TableCell>{training.date}</TableCell>
-                      <TableCell>{training.instructor}</TableCell>
-                      <TableCell>{training.participantsLabel}</TableCell>
+                      <TableCell className="font-medium">{training.title}</TableCell>
+                      <TableCell>
+                        {new Date(training.training_date).toLocaleDateString("pt-BR")}
+                      </TableCell>
+                      <TableCell>{training.instructor ?? "-"}</TableCell>
+                      <TableCell>{training.participants_label ?? training.participants_count ?? "-"}</TableCell>
                       <TableCell>
                         <Badge variant={statusVariant(training.status)} className={statusClassName(training.status)}>
-                          {training.status}
+                          {capitalize(training.status)}
                         </Badge>
                       </TableCell>
                     </TableRow>
