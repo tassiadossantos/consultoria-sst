@@ -3,9 +3,11 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getPgrDetailMock = vi.hoisted(() => vi.fn());
+const downloadPgrPdfMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/pgr", () => ({
   getPgrDetail: getPgrDetailMock,
+  downloadPgrPdf: downloadPgrPdfMock,
 }));
 
 import DocumentPreview from "./document-preview";

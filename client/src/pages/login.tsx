@@ -6,6 +6,27 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-context";
 
+function getLoginErrorMessage(err: unknown): string {
+  const rawMessage = err instanceof Error ? err.message : "Falha ao autenticar";
+  const message = rawMessage.toLowerCase();
+
+  if (message.includes("401")) {
+    return "Usuário ou senha inválidos.";
+  }
+
+  if (
+    message.includes("500") ||
+    message.includes("502") ||
+    message.includes("503") ||
+    message.includes("failed to fetch") ||
+    message.includes("networkerror")
+  ) {
+    return "Não foi possível conectar ao servidor. Verifique se o backend está em execução.";
+  }
+
+  return "Falha ao autenticar. Tente novamente.";
+}
+
 export default function LoginPage() {
   const [, setLocation] = useLocation();
   const { login } = useAuth();
@@ -36,8 +57,7 @@ export default function LoginPage() {
       await login(username, password);
       setLocation(getRedirectPath());
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Falha ao autenticar";
-      setError(message);
+      setError(getLoginErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }

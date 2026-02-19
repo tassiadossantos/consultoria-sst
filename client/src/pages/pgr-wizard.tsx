@@ -469,7 +469,7 @@ export default function PGRWizard() {
                   {step.id !== steps.length && (
                     <div
                       className={cn(
-                        "absolute top-5 left-[50%] w-full h-[2px] -z-0",
+                        "absolute top-5 left-[50%] w-full h-0.5 z-0",
                         step.id < currentStep ? "bg-emerald-500" : "bg-muted"
                       )}
                     />
@@ -484,7 +484,7 @@ export default function PGRWizard() {
           <Card className="shadow-lg border-muted">
             <CardContent className="p-8">
               {currentStep === 1 && (
-                <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-300">
+                <div className="space-y-6">
                   <div className="space-y-2">
                     <h3 className="text-xl font-semibold flex items-center gap-2">
                       <Building2 className="w-5 h-5 text-primary" /> Caracterização da Empresa
@@ -819,6 +819,7 @@ export default function PGRWizard() {
                                   size="icon"
                                   className="text-destructive hover:bg-destructive/10"
                                   onClick={() => removeRisk(risk.id)}
+                                  aria-label="Remover Risco"
                                 >
                                   <Trash2 className="w-4 h-4" />
                                 </Button>
@@ -867,8 +868,7 @@ export default function PGRWizard() {
                     <Textarea
                       value={controlMeasures}
                       onChange={(e) => setControlMeasures(e.target.value)}
-                      placeholder="Descreva medidas coletivas, administrativas, EPIs e procedimentos.
-Ex: EPCs instalados, treinamentos obrigatórios, checklists, bloqueios." 
+                      placeholder="Descreva medidas coletivas, administrativas, EPIs e procedimentos.\nEx: EPCs instalados, treinamentos obrigatórios, checklists, bloqueios." 
                     />
                   </div>
                   <div className="space-y-2">

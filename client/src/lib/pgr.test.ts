@@ -8,6 +8,7 @@ vi.mock("./queryClient", () => ({
 
 import {
   createPgr,
+  downloadPgrPdf,
   deletePgrApi,
   fetchPgrDetail,
   fetchPgrs,
@@ -69,6 +70,16 @@ describe("api – pgr functions", () => {
 
     expect(apiRequestMock).toHaveBeenCalledWith("GET", "/api/pgrs/pgr-1");
     expect(result).toEqual(mockDetail);
+  });
+
+  it("downloadPgrPdf calls GET /api/pgrs/:id/pdf and returns blob", async () => {
+    const mockBlob = new Blob(["pdf"], { type: "application/pdf" });
+    apiRequestMock.mockResolvedValue({ blob: () => Promise.resolve(mockBlob) });
+
+    const result = await downloadPgrPdf("pgr-1");
+
+    expect(apiRequestMock).toHaveBeenCalledWith("GET", "/api/pgrs/pgr-1/pdf");
+    expect(result).toEqual(mockBlob);
   });
 
   it("createPgr calls POST /api/pgrs and returns id", async () => {

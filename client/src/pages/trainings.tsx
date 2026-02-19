@@ -9,7 +9,7 @@ import { GraduationCap, Users, Calendar, AlertTriangle, Plus, Search } from "luc
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Link } from "wouter";
-import { fetchTrainings, createTrainingApi } from "@/lib/api";
+import { fetchTrainings, createTrainingApi, fetchExpiringTrainings } from "@/lib/api";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import type { Training, TrainingStatus } from "@shared/schema";
 
@@ -23,6 +23,12 @@ export default function Trainings() {
     queryKey: ["trainings"],
     queryFn: fetchTrainings,
   });
+  const { data: expiringTrainingsData, isLoading: isLoadingExpiringTrainings } = useQuery({
+    queryKey: ["trainings", "expiring", 7],
+    queryFn: () => fetchExpiringTrainings(7),
+  });
+
+  const expiringTrainings = expiringTrainingsData?.items ?? [];
 
   const initialStatus = useMemo(() => {
     const params = new URLSearchParams(window.location.search);
@@ -99,16 +105,18 @@ export default function Trainings() {
     [trainings],
   );
 
-  const expiredOrExpiringCount = useMemo(
-    () => trainings.filter((t) => t.status === "vencido" || t.status === "vencendo").length,
+  const expiredByStatusCount = useMemo(
+    () => trainings.filter((t) => t.status === "vencido").length,
     [trainings],
   );
+  const expiredOrExpiringCount = expiredByStatusCount + expiringTrainings.length;
 
   const filteredTrainings = useMemo(() => {
     const term = searchTerm.trim().toLowerCase();
-    const trainingsByStatus = trainings.filter(
-      (item) => statusFilter === "all" || item.status === statusFilter,
-    );
+    const trainingsByStatus =
+      statusFilter === "vencendo"
+        ? expiringTrainings
+        : trainings.filter((item) => statusFilter === "all" || item.status === statusFilter);
 
     if (!term) {
       return trainingsByStatus;
@@ -150,6 +158,8 @@ export default function Trainings() {
 
   const statusVariant = (status: TrainingStatus) =>
     status === "agendado" ? "outline" : status === "vencido" ? "destructive" : "secondary";
+
+  const isLoadingTable = isLoading || (statusFilter === "vencendo" && isLoadingExpiringTrainings);
 
   return (
     <Layout>
@@ -283,7 +293,7 @@ export default function Trainings() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoading ? (
+                {isLoadingTable ? (
                   <TableRow>
                     <TableCell colSpan={5} className="text-center text-muted-foreground">
                       Carregando treinamentos...
@@ -296,7 +306,11 @@ export default function Trainings() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filteredTrainings.map((training) => (
+                  filteredTrainings.map((training) => {
+                    const displayStatus: TrainingStatus =
+                      statusFilter === "vencendo" ? "vencendo" : training.status;
+
+                    return (
                     <TableRow key={training.id}>
                       <TableCell className="font-medium">{training.title}</TableCell>
                       <TableCell>
@@ -305,12 +319,13 @@ export default function Trainings() {
                       <TableCell>{training.instructor ?? "-"}</TableCell>
                       <TableCell>{training.participants_label ?? training.participants_count ?? "-"}</TableCell>
                       <TableCell>
-                        <Badge variant={statusVariant(training.status)} className={statusClassName(training.status)}>
-                          {capitalize(training.status)}
+                        <Badge variant={statusVariant(displayStatus)} className={statusClassName(displayStatus)}>
+                          {capitalize(displayStatus)}
                         </Badge>
                       </TableCell>
                     </TableRow>
-                  ))
+                    );
+                  })
                 )}
               </TableBody>
             </Table>

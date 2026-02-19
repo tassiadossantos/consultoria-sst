@@ -47,8 +47,9 @@ export function Layout({ children }: LayoutProps) {
       >
         <div className="h-16 flex items-center px-4 border-b border-sidebar-border gap-3 min-w-0">
           {sidebarOpen && (
-            <span className="font-bold text-lg tracking-tight whitespace-nowrap truncate max-w-[11rem]">
-              Consultoria em SST
+            <span className="font-bold text-lg tracking-tight max-w-[11rem] flex flex-col items-start">
+              <span>Escudo</span>
+              <span>Consultoria em SST</span>
             </span>
           )}
         </div>

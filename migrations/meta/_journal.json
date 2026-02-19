@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1771458471490,
+      "tag": "0000_initial_drizzle_migration",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1771460507042,
+      "tag": "0001_multi_tenant_isolation",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1771465356522,
+      "tag": "0002_alerts_production_hardening",
+      "breakpoints": true
+    }
+  ]
+}

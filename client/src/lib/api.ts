@@ -16,6 +16,33 @@ import type {
   UpdatePgrPayload,
 } from "@shared/schema";
 
+export type SstNewsItem = {
+  title: string;
+  summary: string;
+  link: string;
+  publishedAt: string;
+};
+
+export type SstNewsResponse = {
+  sourceUrl: string;
+  items: SstNewsItem[];
+};
+
+export type ExpiringTrainingsResponse = {
+  windowDays: number;
+  generatedAt: string;
+  totalTrainings: number;
+  totalParticipants: number;
+  items: Array<Training & { days_until_due: number }>;
+};
+
+// ── SST News ──────────────────────────────────────────────
+
+export async function fetchSstNews(): Promise<SstNewsResponse> {
+  const res = await apiRequest("GET", "/api/sst-news");
+  return res.json();
+}
+
 // ── Companies ──────────────────────────────────────────────
 
 export async function fetchCompanies(): Promise<Company[]> {
@@ -57,6 +84,11 @@ export async function fetchPgrDetail(id: string): Promise<PgrDetail> {
   return res.json();
 }
 
+export async function downloadPgrPdf(id: string): Promise<Blob> {
+  const res = await apiRequest("GET", `/api/pgrs/${id}/pdf`);
+  return res.blob();
+}
+
 export async function createPgr(
   payload: CreatePgrPayload,
 ): Promise<string> {
@@ -81,6 +113,11 @@ export async function deletePgrApi(id: string): Promise<void> {
 
 export async function fetchTrainings(): Promise<Training[]> {
   const res = await apiRequest("GET", "/api/trainings");
+  return res.json();
+}
+
+export async function fetchExpiringTrainings(windowDays = 7): Promise<ExpiringTrainingsResponse> {
+  const res = await apiRequest("GET", `/api/trainings/expiring?window_days=${windowDays}`);
   return res.json();
 }
 

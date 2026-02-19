@@ -1,12 +1,15 @@
 import type { Express, NextFunction, Request, Response } from "express";
 import { createHmac, randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
+import type { User } from "@shared/schema";
 import { storage } from "./storage";
 
 declare module "express-serve-static-core" {
   interface Request {
     authUserId?: string;
     authUsername?: string;
+    authRole?: string;
+    authTenantId?: string;
   }
 }
 
@@ -15,13 +18,19 @@ const loginSchema = z.object({
   password: z.string().min(6),
 });
 
-const registerSchema = loginSchema;
+const registerSchema = loginSchema.extend({
+  tenantName: z.string().min(2).max(120).optional(),
+});
 
-type AuthTokenPayload = {
-  sub: string;
-  username: string;
-  exp: number;
-};
+const authTokenPayloadSchema = z.object({
+  sub: z.string().min(1),
+  username: z.string().min(1),
+  role: z.string().min(1),
+  tenant_id: z.string().min(1),
+  exp: z.number().int(),
+});
+
+type AuthTokenPayload = z.infer<typeof authTokenPayloadSchema>;
 
 function getJwtSecret(): string {
   const secret = process.env.JWT_SECRET;
@@ -60,12 +69,23 @@ function verifyJwt(token: string): AuthTokenPayload | null {
   if (signatureBuffer.length !== expectedBuffer.length) return null;
   if (!timingSafeEqual(signatureBuffer, expectedBuffer)) return null;
 
-  const parsed = JSON.parse(Buffer.from(body, "base64url").toString("utf8")) as AuthTokenPayload;
-  if (typeof parsed.exp !== "number" || parsed.exp * 1000 <= Date.now()) {
+  let decodedPayload: unknown;
+  try {
+    decodedPayload = JSON.parse(Buffer.from(body, "base64url").toString("utf8"));
+  } catch {
     return null;
   }
 
-  return parsed;
+  const parsed = authTokenPayloadSchema.safeParse(decodedPayload);
+  if (!parsed.success) {
+    return null;
+  }
+
+  if (parsed.data.exp * 1000 <= Date.now()) {
+    return null;
+  }
+
+  return parsed.data;
 }
 
 function hashPassword(password: string): string {
@@ -90,15 +110,35 @@ function verifyPassword(password: string, stored: string): boolean {
   return timingSafeEqual(hashBuffer, expectedBuffer);
 }
 
-function issueToken(userId: string, username: string): string {
+function issueToken(user: Pick<User, "id" | "username" | "role" | "tenant_id">): string {
   const exp = Math.floor(Date.now() / 1000) + 60 * 60 * 8;
-  return signJwt({ sub: userId, username, exp });
+  return signJwt({
+    sub: user.id,
+    username: user.username,
+    role: user.role,
+    tenant_id: user.tenant_id,
+    exp,
+  });
+}
+
+async function ensureBootstrapTenant() {
+  const bootstrapTenantId = process.env.AUTH_BOOTSTRAP_TENANT_ID;
+  const bootstrapTenantName = process.env.AUTH_BOOTSTRAP_TENANT_NAME ?? "Tenant Inicial";
+
+  if (bootstrapTenantId) {
+    const existingTenant = await storage.getTenant(bootstrapTenantId);
+    if (existingTenant) {
+      return existingTenant;
+    }
+  }
+
+  return storage.createTenant(bootstrapTenantName);
 }
 
 export function requireAuth(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
-    console.warn(`[AUDIT] Unauthorized access: missing or malformed Authorization header`);
+    console.warn("[AUDIT] Unauthorized access: missing or malformed Authorization header");
     res.status(401).json({ message: "Unauthorized" });
     return;
   }
@@ -106,13 +146,15 @@ export function requireAuth(req: Request, res: Response, next: NextFunction): vo
   const token = authHeader.slice("Bearer ".length);
   const payload = verifyJwt(token);
   if (!payload) {
-    console.warn(`[AUDIT] Unauthorized access: invalid or expired token`);
+    console.warn("[AUDIT] Unauthorized access: invalid or expired token");
     res.status(401).json({ message: "Invalid or expired token" });
     return;
   }
 
   req.authUserId = payload.sub;
   req.authUsername = payload.username;
+  req.authRole = payload.role;
+  req.authTenantId = payload.tenant_id;
   next();
 }
 
@@ -123,9 +165,14 @@ export async function registerAuthRoutes(app: Express): Promise<void> {
   if (bootstrapUsername && bootstrapPassword) {
     const existing = await storage.getUserByUsername(bootstrapUsername);
     if (!existing) {
+      const tenant = await ensureBootstrapTenant();
+      const role = process.env.AUTH_BOOTSTRAP_ROLE === "user" ? "user" : "admin";
+
       await storage.createUser({
+        tenant_id: tenant.id,
         username: bootstrapUsername,
         password: hashPassword(bootstrapPassword),
+        role,
       });
     }
   }
@@ -147,17 +194,27 @@ export async function registerAuthRoutes(app: Express): Promise<void> {
       return res.status(409).json({ message: "Username already exists" });
     }
 
-    // Atribuir admin ao primeiro usuário ou conforme lógica
-    const role = parsed.data.username === "admin" ? "admin" : "user";
+    const tenantName = parsed.data.tenantName ?? `Tenant ${parsed.data.username}`;
+    const tenant = await storage.createTenant(tenantName);
+
     const user = await storage.createUser({
+      tenant_id: tenant.id,
       username: parsed.data.username,
       password: hashPassword(parsed.data.password),
-      role,
+      role: "admin",
     });
 
-    const token = issueToken(user.id, user.username);
-    console.info(`[AUDIT] Signup success username=${user.username} id=${user.id}`);
-    return res.status(201).json({ token, user: { id: user.id, username: user.username } });
+    const token = issueToken(user);
+    console.info(`[AUDIT] Signup success username=${user.username} id=${user.id} tenant=${user.tenant_id}`);
+    return res.status(201).json({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        tenant_id: user.tenant_id,
+      },
+    });
   });
 
   app.post("/api/auth/login", async (req: Request, res: Response) => {
@@ -176,9 +233,17 @@ export async function registerAuthRoutes(app: Express): Promise<void> {
       await storage.updateUserPassword(user.id, hashPassword(parsed.data.password));
     }
 
-    const token = signJwt({ sub: user.id, username: user.username, role: user.role, exp: Math.floor(Date.now() / 1000) + 60 * 60 * 8 });
-    console.info(`[AUDIT] Login success username=${user.username} id=${user.id}`);
-    return res.json({ token, user: { id: user.id, username: user.username } });
+    const token = issueToken(user);
+    console.info(`[AUDIT] Login success username=${user.username} id=${user.id} tenant=${user.tenant_id}`);
+    return res.json({
+      token,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role,
+        tenant_id: user.tenant_id,
+      },
+    });
   });
 
   app.get("/api/auth/me", requireAuth, async (req: Request, res: Response) => {
@@ -192,11 +257,16 @@ export async function registerAuthRoutes(app: Express): Promise<void> {
       return res.status(404).json({ message: "User not found" });
     }
 
-    return res.json({ id: user.id, username: user.username });
+    return res.json({
+      id: user.id,
+      username: user.username,
+      role: user.role,
+      tenant_id: user.tenant_id,
+    });
   });
 
   app.post("/api/auth/logout", (_req: Request, res: Response) => {
-    console.info(`[AUDIT] Logout endpoint called`);
+    console.info("[AUDIT] Logout endpoint called");
     return res.status(204).send();
   });
 }

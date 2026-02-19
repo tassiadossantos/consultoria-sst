@@ -4,10 +4,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const fetchPgrsMock = vi.hoisted(() => vi.fn());
 const fetchCompaniesMock = vi.hoisted(() => vi.fn());
+const fetchSstNewsMock = vi.hoisted(() => vi.fn());
+const fetchExpiringTrainingsMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/api", () => ({
   fetchPgrs: fetchPgrsMock,
   fetchCompanies: fetchCompaniesMock,
+  fetchSstNews: fetchSstNewsMock,
+  fetchExpiringTrainings: fetchExpiringTrainingsMock,
 }));
 
 import Dashboard from "./dashboard";
@@ -95,9 +99,54 @@ describe("Dashboard page", () => {
     { id: "c4" },
   ];
 
+  const sstNewsFixture = {
+    sourceUrl:
+      "https://www.gov.br/trabalho-e-emprego/pt-br/assuntos/inspecao-do-trabalho/seguranca-e-saude-no-trabalho",
+    items: [
+      {
+        title: "É falso que a NR-31 obrigue trabalhador rural a trocar chapéu por capacete",
+        summary:
+          "Norma mantém foco na análise técnica dos riscos e não proíbe o uso do chapéu tradicional.",
+        link: "https://www.gov.br/trabalho-e-emprego/pt-br/noticias-e-conteudo/2026/fevereiro/e-falso-que-a-nr-31-obrigue-trabalhador-rural-a-trocar-chapeu-por-capacete",
+        publishedAt: "2026-02-04T15:09:01.000Z",
+      },
+      {
+        title: "CTPP aprova novas regras de segurança para eletricistas e construção civil",
+        summary: "Atualizações reforçam critérios de proteção em atividades de risco.",
+        link: "https://www.gov.br/trabalho-e-emprego/pt-br/noticias-e-conteudo/2025/dezembro/ctpp-aprova-revisao-de-normas-da-nr-10-e-mudancas-na-nr-18-1",
+        publishedAt: "2025-12-19T14:10:00.000Z",
+      },
+    ],
+  };
+
+  const expiringTrainingsFixture = {
+    windowDays: 7,
+    generatedAt: now.toISOString(),
+    totalTrainings: 1,
+    totalParticipants: 3,
+    items: [
+      {
+        id: "t-1",
+        title: "NR-35 Trabalho em Altura",
+        training_date: currentMonthDateA.slice(0, 10),
+        instructor: "João Dias",
+        participants_count: 3,
+        participants_label: null,
+        status: "agendado",
+        company_id: "c1",
+        notes: null,
+        created_at: currentMonthDateA,
+        updated_at: null,
+        days_until_due: 4,
+      },
+    ],
+  };
+
   it("renders overview and key metrics", async () => {
     fetchPgrsMock.mockResolvedValue(pgrsFixture);
     fetchCompaniesMock.mockResolvedValue(companiesFixture);
+    fetchSstNewsMock.mockResolvedValue(sstNewsFixture);
+    fetchExpiringTrainingsMock.mockResolvedValue(expiringTrainingsFixture);
 
     renderPage();
 
@@ -114,6 +163,8 @@ describe("Dashboard page", () => {
   it("renders recent pgr list", async () => {
     fetchPgrsMock.mockResolvedValue(pgrsFixture);
     fetchCompaniesMock.mockResolvedValue(companiesFixture);
+    fetchSstNewsMock.mockResolvedValue(sstNewsFixture);
+    fetchExpiringTrainingsMock.mockResolvedValue(expiringTrainingsFixture);
     renderPage();
 
     expect(await screen.findByText("PGRs Recentes")).toBeInTheDocument();
@@ -123,6 +174,8 @@ describe("Dashboard page", () => {
   it("links recent PGR cards to preview or edit routes", async () => {
     fetchPgrsMock.mockResolvedValue(pgrsFixture);
     fetchCompaniesMock.mockResolvedValue(companiesFixture);
+    fetchSstNewsMock.mockResolvedValue(sstNewsFixture);
+    fetchExpiringTrainingsMock.mockResolvedValue(expiringTrainingsFixture);
     renderPage();
 
     const metalurgicaLink = (await screen.findByText("Metalúrgica Aço Forte Ltda")).closest("a");
@@ -135,30 +188,42 @@ describe("Dashboard page", () => {
   it("navigates to trainings when clicking Verificar", async () => {
     fetchPgrsMock.mockResolvedValue(pgrsFixture);
     fetchCompaniesMock.mockResolvedValue(companiesFixture);
+    fetchSstNewsMock.mockResolvedValue(sstNewsFixture);
+    fetchExpiringTrainingsMock.mockResolvedValue(expiringTrainingsFixture);
     renderPage();
 
-    const verifyButton = await screen.findByRole("button", { name: "Verificar" });
+    expect(
+      await screen.findByText(/3 funcionários em 1 treinamento com vencimento nos próximos 7 dias./i),
+    ).toBeInTheDocument();
+    expect(await screen.findByText(/NR-35 Trabalho em Altura/i)).toBeInTheDocument();
+
+    const verifyButton = await screen.findByRole("button", { name: /Verificar/i });
     const verifyLink = verifyButton.closest("a");
 
-    expect(verifyLink).toHaveAttribute(
-      "href",
-      "/treinamentos?busca=Metalúrgica%20Aço%20Forte%20NR-35",
-    );
+    expect(verifyLink).toHaveAttribute("href", "/treinamentos?status=vencendo");
   });
 
-  it("navigates to normative update when clicking Ler nota técnica", async () => {
+  it("renders SST news links in quick alerts", async () => {
     fetchPgrsMock.mockResolvedValue(pgrsFixture);
     fetchCompaniesMock.mockResolvedValue(companiesFixture);
+    fetchSstNewsMock.mockResolvedValue(sstNewsFixture);
+    fetchExpiringTrainingsMock.mockResolvedValue(expiringTrainingsFixture);
     renderPage();
 
-    const noteLink = await screen.findByRole("link", { name: "Ler nota técnica" });
+    const latestNewsLink = await screen.findByRole("link", {
+      name: /É falso que a NR-31 obrigue trabalhador rural a trocar chapéu por capacete/i,
+    });
+    expect(latestNewsLink).toHaveAttribute("href", sstNewsFixture.items[0].link);
 
-    expect(noteLink).toHaveAttribute("href", "/atualizacao-normativa");
+    const sourceLink = await screen.findByRole("link", { name: /Abrir página oficial/i });
+    expect(sourceLink).toHaveAttribute("href", sstNewsFixture.sourceUrl);
   });
 
   it("navigates to active PGRs when clicking PGRs Ativos card", async () => {
     fetchPgrsMock.mockResolvedValue(pgrsFixture);
     fetchCompaniesMock.mockResolvedValue(companiesFixture);
+    fetchSstNewsMock.mockResolvedValue(sstNewsFixture);
+    fetchExpiringTrainingsMock.mockResolvedValue(expiringTrainingsFixture);
     renderPage();
 
     const activeCardLink = (await screen.findByText("PGRs Ativos")).closest("a");
@@ -169,6 +234,8 @@ describe("Dashboard page", () => {
   it("navigates to expired PGRs when clicking Documentos Vencidos card", async () => {
     fetchPgrsMock.mockResolvedValue(pgrsFixture);
     fetchCompaniesMock.mockResolvedValue(companiesFixture);
+    fetchSstNewsMock.mockResolvedValue(sstNewsFixture);
+    fetchExpiringTrainingsMock.mockResolvedValue(expiringTrainingsFixture);
     renderPage();
 
     const expiredCardLink = (await screen.findByText("Documentos Vencidos")).closest("a");
@@ -179,6 +246,8 @@ describe("Dashboard page", () => {
   it("navigates to draft PGRs when clicking Em Elaboração card", async () => {
     fetchPgrsMock.mockResolvedValue(pgrsFixture);
     fetchCompaniesMock.mockResolvedValue(companiesFixture);
+    fetchSstNewsMock.mockResolvedValue(sstNewsFixture);
+    fetchExpiringTrainingsMock.mockResolvedValue(expiringTrainingsFixture);
     renderPage();
 
     const draftCardLink = (await screen.findByText("Em Elaboração")).closest("a");
@@ -189,6 +258,8 @@ describe("Dashboard page", () => {
   it("navigates to PGR list when clicking Total Empresas card", async () => {
     fetchPgrsMock.mockResolvedValue(pgrsFixture);
     fetchCompaniesMock.mockResolvedValue(companiesFixture);
+    fetchSstNewsMock.mockResolvedValue(sstNewsFixture);
+    fetchExpiringTrainingsMock.mockResolvedValue(expiringTrainingsFixture);
     renderPage();
 
     const companiesCardLink = (await screen.findByText("Total Empresas")).closest("a");

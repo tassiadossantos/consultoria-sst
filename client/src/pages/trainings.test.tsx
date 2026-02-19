@@ -3,10 +3,12 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const fetchTrainingsMock = vi.hoisted(() => vi.fn());
+const fetchExpiringTrainingsMock = vi.hoisted(() => vi.fn());
 const createTrainingApiMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/api", () => ({
   fetchTrainings: fetchTrainingsMock,
+  fetchExpiringTrainings: fetchExpiringTrainingsMock,
   createTrainingApi: createTrainingApiMock,
 }));
 
@@ -94,9 +96,33 @@ describe("Trainings page", () => {
     },
   ];
 
+  const expiringTrainingsFixture = {
+    windowDays: 7,
+    generatedAt: now.toISOString(),
+    totalTrainings: 1,
+    totalParticipants: 8,
+    items: [
+      {
+        id: "t-2",
+        title: "NR-10 Segurança em Eletricidade",
+        training_date: nextMonthDate,
+        instructor: "Maria Lima",
+        participants_count: 8,
+        participants_label: null,
+        status: "agendado",
+        company_id: "c2",
+        notes: null,
+        created_at: thisMonthDate,
+        updated_at: null,
+        days_until_due: 5,
+      },
+    ],
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     fetchTrainingsMock.mockResolvedValue(trainingsFixture);
+    fetchExpiringTrainingsMock.mockResolvedValue(expiringTrainingsFixture);
     createTrainingApiMock.mockResolvedValue(trainingsFixture[0]);
     window.history.pushState({}, "", "/treinamentos");
   });
@@ -117,14 +143,15 @@ describe("Trainings page", () => {
     expect(screen.getByText("Vencendo")).toBeInTheDocument();
   });
 
-  it("shows expiring employees from dashboard context", async () => {
-    window.history.pushState({}, "", "/treinamentos?busca=Metalúrgica%20Aço%20Forte%20NR-35");
+  it("filters vencendo by backend due-date rule", async () => {
+    window.history.pushState({}, "", "/treinamentos?status=vencendo");
 
     renderPage();
 
-    expect(await screen.findByDisplayValue("Metalúrgica Aço Forte NR-35")).toBeInTheDocument();
-    expect(await screen.findByText("Metalúrgica Aço Forte NR-35")).toBeInTheDocument();
-    expect(screen.getByText(/Ana Souza/i)).toBeInTheDocument();
+    expect(await screen.findByText("NR-10 Segurança em Eletricidade")).toBeInTheDocument();
+    expect(screen.queryByText("NR-35 Trabalho em Altura")).not.toBeInTheDocument();
+    expect(screen.queryByText("NR-05 CIPA")).not.toBeInTheDocument();
+    expect(screen.getByText("Vencendo")).toBeInTheDocument();
   });
 
   it("opens new training dialog when clicking Novo Treinamento", async () => {

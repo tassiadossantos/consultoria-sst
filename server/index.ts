@@ -1,8 +1,7 @@
 import "dotenv/config";
+
 const requiredEnv = [
   "DATABASE_URL",
-  "VITE_SUPABASE_URL",
-  "VITE_SUPABASE_ANON_KEY",
 ];
 
 for (const key of requiredEnv) {
@@ -13,11 +12,13 @@ for (const key of requiredEnv) {
 }
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
+import { startScheduledJobs, type ScheduledJobsHandle } from "./jobs";
 import { serveStatic } from "./static";
 import { createServer } from "http";
 
 const app = express();
 const httpServer = createServer(app);
+let scheduledJobsHandle: ScheduledJobsHandle | null = null;
 
 declare module "http" {
   interface IncomingMessage {
@@ -73,7 +74,7 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  await registerRoutes(httpServer, app);
+  await registerRoutes(app, httpServer);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
@@ -112,6 +113,19 @@ app.use((req, res, next) => {
     },
     () => {
       log(`serving on port ${port}`);
+      scheduledJobsHandle = startScheduledJobs({
+        logger: {
+          info: (message: string) => log(message, "jobs"),
+          warn: (message: string) => log(message, "jobs"),
+          error: (message: string) => log(message, "jobs"),
+        },
+      });
     },
   );
 })();
+
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.on(signal, () => {
+    scheduledJobsHandle?.stop();
+  });
+}

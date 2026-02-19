@@ -102,6 +102,65 @@ const editFixture = {
 };
 
 describe("PGRWizard integration", () => {
+    it("removes a risk and updates state", async () => {
+      renderWizard();
+      fireEvent.click(screen.getByRole("button", { name: /Próximo/i }));
+      fireEvent.click(screen.getByRole("button", { name: /Adicionar Risco/i }));
+      fireEvent.click(screen.getByRole("button", { name: /Salvar Risco/i }));
+      // Remove risco
+      fireEvent.click(screen.getByRole("button", { name: /Remover Risco/i }));
+      expect(screen.queryByText(/Perda auditiva/i)).not.toBeInTheDocument();
+    });
+
+    it("blocks submission with incomplete data in intermediate steps", async () => {
+      renderWizard();
+      // Preenche só a primeira etapa
+      fireEvent.change(screen.getByPlaceholderText("Ex: Metalúrgica Exemplo Ltda"), {
+        target: { value: "Empresa Teste" },
+      });
+      
+      for (let i = 0; i < 5; i++) {
+        fireEvent.click(screen.getByRole("button", { name: /Próximo/i }));
+      }
+
+      // Tenta finalizar sem preencher riscos
+      fireEvent.click(screen.getByRole("button", { name: /Finalizar/i }));
+      await waitFor(() => {
+        expect(toastMock).toHaveBeenCalledWith(
+          expect.objectContaining({ title: "Preencha os campos obrigatorios" }),
+        );
+      });
+      expect(createPgrMock).not.toHaveBeenCalled();
+    });
+
+    it("navigates between steps and returns to previous", async () => {
+      renderWizard();
+      fireEvent.click(screen.getByRole("button", { name: /Próximo/i }));
+      fireEvent.click(screen.getByRole("button", { name: /Próximo/i }));
+      fireEvent.click(screen.getByRole("button", { name: /Voltar/i }));
+      fireEvent.click(screen.getByRole("button", { name: /Voltar/i }));
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText("Ex: Metalúrgica Exemplo Ltda")).toBeInTheDocument();
+      });
+    });
+
+    it("submits PGR as draft (not active)", async () => {
+      renderWizard();
+      fireEvent.change(screen.getByPlaceholderText("Ex: Metalúrgica Exemplo Ltda"), {
+        target: { value: "Empresa Draft" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /Próximo/i }));
+      fireEvent.click(screen.getByRole("button", { name: /Adicionar Risco/i }));
+      fireEvent.click(screen.getByRole("button", { name: /Salvar Risco/i }));
+      fireEvent.click(screen.getByRole("button", { name: /Próximo/i }));
+      fireEvent.click(screen.getByRole("button", { name: /Salvar Rascunho/i }));
+      await waitFor(() => {
+        expect(createPgrMock).toHaveBeenCalled();
+      });
+      const payload = createPgrMock.mock.calls[0][0];
+      expect(payload.pgr.status).toBe("draft");
+      expect(payload.company.name).toBe("Empresa Draft");
+    });
   beforeEach(() => {
     vi.clearAllMocks();
     createPgrMock.mockResolvedValue("pgr-123");

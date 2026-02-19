@@ -9,11 +9,15 @@ import {
   Plus,
   ChevronRight,
   TrendingUp,
-  Users
+  Users,
+  ExternalLink,
 } from "lucide-react";
-import { fetchPgrs, fetchCompanies } from "@/lib/api";
+import { fetchPgrs, fetchCompanies, fetchSstNews, fetchExpiringTrainings } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
+
+const DEFAULT_SST_SOURCE_URL =
+  "https://www.gov.br/trabalho-e-emprego/pt-br/assuntos/inspecao-do-trabalho/seguranca-e-saude-no-trabalho";
 
 export default function Dashboard() {
   const { data: pgrs = [], isLoading: isLoadingPgrs } = useQuery({
@@ -25,6 +29,27 @@ export default function Dashboard() {
     queryKey: ["companies"],
     queryFn: fetchCompanies,
   });
+
+  const { data: sstNewsData, isLoading: isLoadingSstNews } = useQuery({
+    queryKey: ["sst-news"],
+    queryFn: fetchSstNews,
+  });
+
+  const { data: expiringTrainingsData, isLoading: isLoadingExpiringTrainings } = useQuery({
+    queryKey: ["trainings", "expiring", 7],
+    queryFn: () => fetchExpiringTrainings(7),
+  });
+
+  const sstNewsItems = sstNewsData?.items ?? [];
+  const sstSourceUrl = sstNewsData?.sourceUrl ?? DEFAULT_SST_SOURCE_URL;
+
+  const expiringTrainings = expiringTrainingsData?.items ?? [];
+  const expiringTrainingsWindowDays = expiringTrainingsData?.windowDays ?? 7;
+  const expiringParticipantsCount = expiringTrainingsData?.totalParticipants ?? 0;
+  const expiringTrainingsTitlesPreview = expiringTrainings
+    .slice(0, 3)
+    .map((training) => training.title)
+    .join(", ");
 
   const activePGRs = pgrs.filter(p => p.status === "active").length;
   const expiredPGRs = pgrs.filter(p => p.status === "expired").length;
@@ -250,10 +275,34 @@ export default function Dashboard() {
                    <AlertTriangle className="h-4 w-4 text-amber-500" />
                    <h4 className="font-semibold text-sm">Treinamentos Vencendo</h4>
                 </div>
-                <p className="text-sm text-muted-foreground mb-3">
-                  3 funcionários da <strong>Metalúrgica Aço Forte</strong> precisam renovar NR-35 esta semana.
-                </p>
-                <Link href="/treinamentos?busca=Metalúrgica%20Aço%20Forte%20NR-35">
+                {isLoadingExpiringTrainings ? (
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Carregando alertas de treinamentos...
+                  </p>
+                ) : expiringTrainings.length > 0 ? (
+                  <>
+                    <p className="text-sm text-muted-foreground mb-2">
+                      {expiringParticipantsCount > 0
+                        ? `${expiringParticipantsCount} funcionário${expiringParticipantsCount > 1 ? "s" : ""} em ${expiringTrainings.length} treinamento${expiringTrainings.length > 1 ? "s" : ""} com vencimento nos próximos ${expiringTrainingsWindowDays} dias.`
+                        : `${expiringTrainings.length} treinamento${expiringTrainings.length > 1 ? "s" : ""} com vencimento nos próximos ${expiringTrainingsWindowDays} dias.`}
+                    </p>
+                    {expiringTrainingsTitlesPreview ? (
+                      <p className="text-xs text-muted-foreground mb-3">
+                        {expiringTrainingsTitlesPreview}
+                        {expiringTrainings.length > 3 ? "..." : ""}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground mb-3">
+                        Abra a lista para ver os detalhes.
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Nenhum treinamento marcado como vencendo no momento.
+                  </p>
+                )}
+                <Link href="/treinamentos?status=vencendo">
                   <Button variant="outline" size="sm" className="w-full">Verificar</Button>
                 </Link>
               </div>
@@ -261,14 +310,59 @@ export default function Dashboard() {
               <div className="p-4 bg-white dark:bg-card border rounded-lg shadow-sm">
                  <div className="flex items-center gap-2 mb-2">
                    <TrendingUp className="h-4 w-4 text-emerald-500" />
-                   <h4 className="font-semibold text-sm">Atualização Normativa</h4>
+                   <h4 className="font-semibold text-sm">Atualizações SST (MTE)</h4>
                 </div>
-                <p className="text-sm text-muted-foreground mb-3">
-                  Nova portaria do MTE sobre eSocial S-2240 foi publicada. O sistema já está atualizado.
-                </p>
-                <Link href="/atualizacao-normativa">
-                  <Button variant="ghost" size="sm" className="w-full text-primary hover:text-primary/80">Ler nota técnica</Button>
-                </Link>
+                {isLoadingSstNews ? (
+                  <p className="text-sm text-muted-foreground">
+                    Carregando notícias do MTE...
+                  </p>
+                ) : sstNewsItems.length > 0 ? (
+                  <div className="space-y-2">
+                    {sstNewsItems.map((item) => (
+                      <a
+                        key={item.link}
+                        href={item.link}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="block rounded-md border p-3 hover:bg-muted/50 transition-colors"
+                      >
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(item.publishedAt).toLocaleDateString("pt-BR")}
+                        </p>
+                        <p className="text-sm font-medium">{item.title}</p>
+                      </a>
+                    ))}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full text-primary hover:text-primary/80"
+                      asChild
+                    >
+                      <a href={sstSourceUrl} target="_blank" rel="noreferrer">
+                        Abrir página oficial
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    </Button>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-sm text-muted-foreground mb-3">
+                      Não foi possível carregar notícias agora. Você pode consultar a página
+                      oficial do MTE.
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-full text-primary hover:text-primary/80"
+                      asChild
+                    >
+                      <a href={sstSourceUrl} target="_blank" rel="noreferrer">
+                        Abrir página oficial
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    </Button>
+                  </>
+                )}
               </div>
             </CardContent>
           </Card>

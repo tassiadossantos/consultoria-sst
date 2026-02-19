@@ -2,26 +2,16 @@ import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "path";
-import runtimeErrorOverlay from "@replit/vite-plugin-runtime-error-modal";
+// ...existing code...
 import { metaImagesPlugin } from "./vite-plugin-meta-images";
 
 export default defineConfig({
   plugins: [
     react(),
-    runtimeErrorOverlay(),
+  // ...existing code...
     tailwindcss(),
     metaImagesPlugin(),
-    ...(process.env.NODE_ENV !== "production" &&
-    process.env.REPL_ID !== undefined
-      ? [
-          await import("@replit/vite-plugin-cartographer").then((m) =>
-            m.cartographer(),
-          ),
-          await import("@replit/vite-plugin-dev-banner").then((m) =>
-            m.devBanner(),
-          ),
-        ]
-      : []),
+// ...existing code...
   ],
   resolve: {
     alias: {
@@ -58,6 +48,13 @@ export default defineConfig({
   test: {
     environment: "jsdom",
     setupFiles: "./src/test/setup.ts",
-    include: ["./src/**/*.{test,spec}.{ts,tsx}"],
+    include: [
+      "./src/**/*.{test,spec}.{ts,tsx}",
+      "../server/**/*.{test,spec}.ts",
+    ],
+    coverage: {
+      reporter: ["text", "html"],
+      reportsDirectory: "./coverage",
+    },
   },
 });

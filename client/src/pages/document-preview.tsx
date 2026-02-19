@@ -3,7 +3,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Printer, ArrowLeft, Download } from "lucide-react";
 import { Link, useRoute } from "wouter";
 import { useQuery } from "@tanstack/react-query";
-import { getPgrDetail } from "@/lib/pgr";
+import { getPgrDetail, downloadPgrPdf } from "@/lib/pgr";
 import type { PgrDetail } from "@shared/schema";
 
 export default function DocumentPreview() {
@@ -18,6 +18,24 @@ export default function DocumentPreview() {
 
   const handlePrint = () => {
     window.print();
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!pgrId) return;
+
+    try {
+      const pdfBlob = await downloadPgrPdf(pgrId);
+      const url = window.URL.createObjectURL(pdfBlob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `pgr-${pgrId}.pdf`;
+      document.body.append(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Failed to download server-side PDF", error);
+    }
   };
 
   if (isLoading) {
@@ -53,7 +71,7 @@ export default function DocumentPreview() {
           </Button>
         </Link>
         <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handlePrint}>
+          <Button variant="outline" size="sm" onClick={handleDownloadPdf}>
             <Download className="w-4 h-4 mr-2" /> Baixar PDF
           </Button>
           <Button size="sm" onClick={handlePrint}>

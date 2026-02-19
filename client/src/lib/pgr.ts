@@ -3,6 +3,7 @@
 export {
   fetchPgrs as listPgrs,
   fetchPgrDetail as getPgrDetail,
+  downloadPgrPdf,
   createPgr,
   updatePgr,
   deletePgrApi as deletePgr,

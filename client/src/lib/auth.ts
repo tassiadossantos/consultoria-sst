@@ -4,6 +4,8 @@ import { clearAuthToken, setAuthToken } from "./auth-token";
 export type AuthUser = {
   id: string;
   username: string;
+  role?: string;
+  tenant_id?: string;
 };
 
 export type LoginResponse = {
