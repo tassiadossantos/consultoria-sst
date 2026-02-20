@@ -1,12 +1,14 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const fetchTrainingsMock = vi.hoisted(() => vi.fn());
 const fetchExpiringTrainingsMock = vi.hoisted(() => vi.fn());
 const createTrainingApiMock = vi.hoisted(() => vi.fn());
+const fetchCompaniesMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/api", () => ({
+  fetchCompanies: fetchCompaniesMock,
   fetchTrainings: fetchTrainingsMock,
   fetchExpiringTrainings: fetchExpiringTrainingsMock,
   createTrainingApi: createTrainingApiMock,
@@ -121,6 +123,10 @@ describe("Trainings page", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    fetchCompaniesMock.mockResolvedValue([
+      { id: "c1", name: "Metalúrgica Aço Forte" },
+      { id: "c2", name: "Construtora Horizonte" },
+    ]);
     fetchTrainingsMock.mockResolvedValue(trainingsFixture);
     fetchExpiringTrainingsMock.mockResolvedValue(expiringTrainingsFixture);
     createTrainingApiMock.mockResolvedValue(trainingsFixture[0]);
@@ -137,7 +143,7 @@ describe("Trainings page", () => {
   it("renders training table with statuses", async () => {
     renderPage();
 
-    expect(await screen.findByText("NR-35 Trabalho em Altura")).toBeInTheDocument();
+    expect(await screen.findByText("Trabalho em Altura")).toBeInTheDocument();
     expect(screen.getByText("Agendado")).toBeInTheDocument();
     expect(screen.getByText("Vencido")).toBeInTheDocument();
     expect(screen.getByText("Vencendo")).toBeInTheDocument();
@@ -148,9 +154,9 @@ describe("Trainings page", () => {
 
     renderPage();
 
-    expect(await screen.findByText("NR-10 Segurança em Eletricidade")).toBeInTheDocument();
-    expect(screen.queryByText("NR-35 Trabalho em Altura")).not.toBeInTheDocument();
-    expect(screen.queryByText("NR-05 CIPA")).not.toBeInTheDocument();
+    expect(await screen.findByText("Segurança em Eletricidade")).toBeInTheDocument();
+    expect(screen.queryByText("Trabalho em Altura")).not.toBeInTheDocument();
+    expect(screen.queryByText("CIPA")).not.toBeInTheDocument();
     expect(screen.getByText("Vencendo")).toBeInTheDocument();
   });
 
@@ -160,7 +166,43 @@ describe("Trainings page", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Novo Treinamento" }));
 
     expect(screen.getByRole("heading", { name: "Novo Treinamento" })).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Ex: NR-35 Trabalho em Altura")).toBeInTheDocument();
+    expect(screen.getByLabelText("Norma (NR)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Participantes (estruturado)")).toBeInTheDocument();
+  });
+
+  it("creates training with NR profile, computed due date and structured participants", async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Novo Treinamento" }));
+
+    fireEvent.change(screen.getByLabelText("Norma (NR)"), { target: { value: "NR-35" } });
+    fireEvent.change(screen.getByLabelText("Carga horária (h)"), { target: { value: "8" } });
+    fireEvent.change(screen.getByLabelText("Tema do treinamento"), { target: { value: "Reciclagem da equipe" } });
+    fireEvent.change(screen.getByLabelText("Data da realização"), { target: { value: "2026-01-10" } });
+    fireEvent.change(screen.getByLabelText("Instrutor"), { target: { value: "Tassia dos Santos Silva" } });
+    fireEvent.change(screen.getByLabelText("Participantes (estruturado)"), {
+      target: { value: "Ana Souza\nBruno Lima\nCarla Santos" },
+    });
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Vencimento (automático)")).toHaveValue("2028-01-10");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
+
+    await waitFor(() => {
+      expect(createTrainingApiMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "NR-35 - Reciclagem da equipe",
+          training_date: "2028-01-10",
+          instructor: "Tassia dos Santos Silva",
+          participants_count: 3,
+          participants_label: "Ana Souza, Bruno Lima, Carla Santos",
+          status: "agendado",
+        }),
+        expect.anything(),
+      );
+    });
   });
 
   it("navigates to realized trainings when clicking Realizados (Mês)", async () => {
@@ -175,7 +217,7 @@ describe("Trainings page", () => {
     renderPage();
 
     const realizedCardLink = (await screen.findByText("Realizados (Mês)")).closest("a");
-    await screen.findByText("NR-35 Trabalho em Altura");
+    await screen.findByText("Trabalho em Altura");
 
     expect(realizedCardLink).toBeInTheDocument();
     expect(within(realizedCardLink as HTMLElement).getByText("12")).toBeInTheDocument();
@@ -186,8 +228,8 @@ describe("Trainings page", () => {
 
     renderPage();
 
-    expect(await screen.findByText("NR-35 Trabalho em Altura")).toBeInTheDocument();
-    expect(screen.queryByText("NR-10 Segurança em Eletricidade")).not.toBeInTheDocument();
-    expect(screen.queryByText("NR-05 CIPA")).not.toBeInTheDocument();
+    expect(await screen.findByText("Trabalho em Altura")).toBeInTheDocument();
+    expect(screen.queryByText("Segurança em Eletricidade")).not.toBeInTheDocument();
+    expect(screen.queryByText("CIPA")).not.toBeInTheDocument();
   });
 });

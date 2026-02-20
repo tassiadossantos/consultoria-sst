@@ -30,8 +30,16 @@ vi.mock("@/pages/documents", () => ({
   default: () => <div>Documents Page</div>,
 }));
 
+vi.mock("@/pages/document-generator", () => ({
+  default: () => <div>Document Generator Page</div>,
+}));
+
 vi.mock("@/pages/normative-update", () => ({
   default: () => <div>Normative Update Page</div>,
+}));
+
+vi.mock("@/pages/help", () => ({
+  default: () => <div>Help Page</div>,
 }));
 
 vi.mock("@/pages/not-found", () => ({
@@ -125,11 +133,25 @@ describe("App routes", () => {
     expect(screen.getByText("Documents Page")).toBeInTheDocument();
   });
 
+  it("renders document generator route", () => {
+    setPath("/documentos/novo?tipo=apr");
+    render(<App />);
+
+    expect(screen.getByText("Document Generator Page")).toBeInTheDocument();
+  });
+
   it("renders normative update route", () => {
     setPath("/atualizacao-normativa");
     render(<App />);
 
     expect(screen.getByText("Normative Update Page")).toBeInTheDocument();
+  });
+
+  it("renders help route", () => {
+    setPath("/ajuda");
+    render(<App />);
+
+    expect(screen.getByText("Help Page")).toBeInTheDocument();
   });
 
   it("renders fallback route for unknown paths", () => {

@@ -60,7 +60,11 @@ export interface IStorage {
   getPgrDetail(tenantId: string, id: string): Promise<PgrDetail | undefined>;
   createPgr(tenantId: string, payload: CreatePgrPayload): Promise<string>;
   updatePgr(tenantId: string, payload: UpdatePgrPayload): Promise<string>;
-  deletePgr(tenantId: string, id: string): Promise<boolean>;
+  deletePgr(
+    tenantId: string,
+    id: string,
+    options?: { deleteOrphanCompany?: boolean },
+  ): Promise<boolean>;
 
   // Trainings
   listTrainings(tenantId: string): Promise<Training[]>;
@@ -390,12 +394,56 @@ export class DatabaseStorage implements IStorage {
     });
   }
 
-  async deletePgr(tenantId: string, id: string): Promise<boolean> {
-    const result = await db
-      .delete(pgrs)
-      .where(and(eq(pgrs.id, id), eq(pgrs.tenant_id, tenantId)))
-      .returning({ id: pgrs.id });
-    return result.length > 0;
+  async deletePgr(
+    tenantId: string,
+    id: string,
+    options: { deleteOrphanCompany?: boolean } = {},
+  ): Promise<boolean> {
+    return db.transaction(async (tx) => {
+      const [targetPgr] = await tx
+        .select({ id: pgrs.id, company_id: pgrs.company_id })
+        .from(pgrs)
+        .where(and(eq(pgrs.id, id), eq(pgrs.tenant_id, tenantId)));
+
+      if (!targetPgr) {
+        return false;
+      }
+
+      await tx
+        .delete(pgrs)
+        .where(and(eq(pgrs.id, id), eq(pgrs.tenant_id, tenantId)));
+
+      if (!options.deleteOrphanCompany) {
+        return true;
+      }
+
+      const companyId = targetPgr.company_id;
+      const [remainingPgr] = await tx
+        .select({ id: pgrs.id })
+        .from(pgrs)
+        .where(and(eq(pgrs.tenant_id, tenantId), eq(pgrs.company_id, companyId)))
+        .limit(1);
+
+      if (remainingPgr) {
+        return true;
+      }
+
+      const [linkedTraining] = await tx
+        .select({ id: trainings.id })
+        .from(trainings)
+        .where(and(eq(trainings.tenant_id, tenantId), eq(trainings.company_id, companyId)))
+        .limit(1);
+
+      if (linkedTraining) {
+        return true;
+      }
+
+      await tx
+        .delete(companies)
+        .where(and(eq(companies.id, companyId), eq(companies.tenant_id, tenantId)));
+
+      return true;
+    });
   }
 
   async listTrainings(tenantId: string): Promise<Training[]> {

@@ -28,9 +28,10 @@ import {
 import { cn } from "@/lib/utils";
 import { riskTypes, calculateRiskLevel } from "@/lib/mock-data";
 import { createPgr, getPgrDetail, updatePgr } from "@/lib/pgr";
+import { fetchCompany } from "@/lib/api";
 import { useToast } from "@/hooks/use-toast";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { useLocation, useRoute } from "wouter";
+import { useLocation, useRoute, useSearch } from "wouter";
 import type { ActionStatus, PgrRiskLevel, RiskType } from "@shared/schema";
 
 type RiskItem = {
@@ -92,12 +93,24 @@ export default function PGRWizard() {
   const [currentStep, setCurrentStep] = useState(1);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [, setLocation] = useLocation();
+  const search = useSearch();
   const [editMatch, editParams] = useRoute("/pgr/:id/editar");
   const editId = editParams?.id;
   const isEditing = Boolean(editMatch && editId);
   const { toast } = useToast();
   const [hydrated, setHydrated] = useState(false);
   const [editCompanyId, setEditCompanyId] = useState<string | null>(null);
+  const [prefillApplied, setPrefillApplied] = useState(false);
+
+  const prefillCompanyId = useMemo(() => {
+    if (isEditing) {
+      return null;
+    }
+
+    const params = new URLSearchParams(search);
+    const companyId = params.get("company_id");
+    return companyId?.trim() || null;
+  }, [isEditing, search]);
 
   const [company, setCompany] = useState({
     name: "",
@@ -182,6 +195,14 @@ export default function PGRWizard() {
     queryKey: ["pgr-edit", editId],
     queryFn: () => getPgrDetail(editId ?? ""),
     enabled: isEditing,
+  });
+
+  const { data: prefillCompany } = useQuery({
+    queryKey: ["pgr-company-prefill", prefillCompanyId],
+    queryFn: () => fetchCompany(prefillCompanyId ?? ""),
+    enabled: !isEditing && Boolean(prefillCompanyId),
+    retry: false,
+    refetchOnWindowFocus: false,
   });
 
   const nextStep = () => setCurrentStep((prev) => Math.min(prev + 1, steps.length));
@@ -301,10 +322,32 @@ export default function PGRWizard() {
     setHydrated(true);
   }, [editData, hydrated]);
 
+  useEffect(() => {
+    if (!prefillCompanyId || !prefillCompany || prefillApplied || isEditing) {
+      return;
+    }
+
+    const keepIfFilled = (currentValue: string, nextValue: string | null | undefined): string =>
+      currentValue.trim() ? currentValue : (nextValue ?? "");
+
+    setCompany((current) => ({
+      ...current,
+      name: keepIfFilled(current.name, prefillCompany.name),
+      trade_name: keepIfFilled(current.trade_name, prefillCompany.trade_name),
+      cnpj: keepIfFilled(current.cnpj, prefillCompany.cnpj),
+      cnae: keepIfFilled(current.cnae, prefillCompany.cnae),
+      address: keepIfFilled(current.address, prefillCompany.address),
+      employees: keepIfFilled(current.employees, prefillCompany.employees?.toString()),
+      risk_level: keepIfFilled(current.risk_level, prefillCompany.risk_level?.toString()),
+      legal_responsible: keepIfFilled(current.legal_responsible, prefillCompany.legal_responsible),
+    }));
+    setPrefillApplied(true);
+  }, [isEditing, prefillApplied, prefillCompany, prefillCompanyId]);
+
   const handleSave = async (status: "draft" | "active") => {
     if (status === "active") {
       const missing: string[] = [];
-      if (!company.name.trim()) missing.push("Razao Social");
+      if (!company.name.trim()) missing.push("Razão Social");
       if (!company.cnpj.trim()) missing.push("CNPJ");
       if (risks.length === 0) missing.push("Inventário de riscos");
       if (!riskCriteria.trim()) missing.push("Critérios de avaliação");
@@ -389,7 +432,7 @@ export default function PGRWizard() {
           status === "draft"
             ? "O PGR foi salvo como rascunho."
             : isEditing
-            ? "As alteracoes foram salvas."
+            ? "As alterações foram salvas."
             : "O PGR foi finalizado com sucesso.",
       });
 
@@ -418,7 +461,7 @@ export default function PGRWizard() {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => handleSave("draft")} disabled={isPending || isUpdating}>
-              <Save className="w-4 h-4 mr-2" /> {isEditing ? "Salvar Alteracoes" : "Salvar Rascunho"}
+              <Save className="w-4 h-4 mr-2" /> {isEditing ? "Salvar Alterações" : "Salvar Rascunho"}
             </Button>
           </div>
         </div>
@@ -1038,14 +1081,17 @@ export default function PGRWizard() {
         </div>
 
         <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-md border-t flex justify-between items-center z-10 md:pl-72 pl-4 transition-all">
-          <Button
-            variant="outline"
-            onClick={prevStep}
-            disabled={currentStep === 1}
-            className="w-32"
-          >
-            <ChevronLeft className="w-4 h-4 mr-2" /> Voltar
-          </Button>
+          {currentStep > 1 ? (
+            <Button
+              variant="outline"
+              onClick={prevStep}
+              className="w-32"
+            >
+              <ChevronLeft className="w-4 h-4 mr-2" /> Voltar
+            </Button>
+          ) : (
+            <div className="w-32" />
+          )}
 
           <div className="text-sm font-medium text-muted-foreground">
             Passo {currentStep} de {steps.length} • Progresso {progress}%

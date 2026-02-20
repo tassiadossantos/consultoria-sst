@@ -12,7 +12,9 @@ import PGRWizard from "@/pages/pgr-wizard";
 import DocumentPreview from "@/pages/document-preview";
 import Trainings from "@/pages/trainings";
 import Documents from "@/pages/documents";
+import DocumentGeneratorPage from "@/pages/document-generator";
 import NormativeUpdate from "@/pages/normative-update";
+import HelpPage from "@/pages/help";
 import LoginPage from "@/pages/login";
 import ConfiguracoesPage from "@/pages/configuracoes";
 import { useEffect } from "react";
@@ -28,8 +30,10 @@ function ProtectedRoutes() {
       <Route path="/pgr/:id/editar" component={PGRWizard} />
       <Route path="/pgr/:id/preview" component={DocumentPreview} />
       <Route path="/treinamentos" component={Trainings} />
+      <Route path="/documentos/novo" component={DocumentGeneratorPage} />
       <Route path="/documentos" component={Documents} />
       <Route path="/atualizacao-normativa" component={NormativeUpdate} />
+      <Route path="/ajuda" component={HelpPage} />
       <Route path="/configuracoes" component={ConfiguracoesPage} />
       <Route component={NotFound} />
     </Switch>

@@ -17,7 +17,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, Plus, FileText, Printer, Pencil, Trash2 } from "lucide-react";
+import { Search, Plus, FileText, Printer, Pencil, Trash2, Eye } from "lucide-react";
 import { Link } from "wouter";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { deletePgr, listPgrs } from "@/lib/pgr";
@@ -32,7 +32,7 @@ export default function PGRList() {
     queryFn: listPgrs,
   });
   const { mutateAsync: deletePgrAsync, isPending: isDeleting } = useMutation({
-    mutationFn: deletePgr,
+    mutationFn: (id: string) => deletePgr(id, { deleteOrphanCompany: true }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["pgrs"] });
       toast({ title: "PGR excluído", description: "O registro foi removido com sucesso." });
@@ -151,7 +151,7 @@ export default function PGRList() {
                   <TableHead>Revisão</TableHead>
                   <TableHead>Vigência</TableHead>
                   <TableHead>Progresso</TableHead>
-                  <TableHead className="text-right">Acoes</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -212,6 +212,11 @@ export default function PGRList() {
                         </Link>
                         <Link href={`/pgr/${pgr.id}/preview`}>
                           <Button variant="ghost" size="icon" title="Visualizar PDF">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </Link>
+                        <Link href={`/pgr/${pgr.id}/preview?print=1`}>
+                          <Button variant="ghost" size="icon" title="Imprimir PDF">
                             <Printer className="h-4 w-4" />
                           </Button>
                         </Link>

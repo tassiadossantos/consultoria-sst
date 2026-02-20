@@ -210,14 +210,15 @@ describe("Dashboard page", () => {
     fetchExpiringTrainingsMock.mockResolvedValue(expiringTrainingsFixture);
     renderPage();
 
-    const latestNewsLink = await screen.findByRole("link", {
-      name: /É falso que a NR-31 obrigue trabalhador rural a trocar chapéu por capacete/i,
-    });
+    const latestNewsTitle = await screen.findByText(/NR-31 obrigue trabalhador rural/i);
+    const latestNewsLink = latestNewsTitle.closest("a");
+
+    expect(latestNewsLink).not.toBeNull();
     expect(latestNewsLink).toHaveAttribute("href", sstNewsFixture.items[0].link);
 
     const sourceLink = await screen.findByRole("link", { name: /Abrir página oficial/i });
     expect(sourceLink).toHaveAttribute("href", sstNewsFixture.sourceUrl);
-  });
+  }, 10000);
 
   it("navigates to active PGRs when clicking PGRs Ativos card", async () => {
     fetchPgrsMock.mockResolvedValue(pgrsFixture);

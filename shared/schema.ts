@@ -448,6 +448,27 @@ export const updatePgrPayloadSchema = createPgrPayloadSchema.extend({
   companyId: z.string().min(1),
 });
 
+const documentSignatureStatusSchema = z.enum(["sim", "ressalva", "nao"]);
+
+export const documentPdfPayloadSchema = z.object({
+  template_id: z.string().min(1),
+  template_title: z.string().min(1),
+  normative_base: z.string().nullish(),
+  signature_status: documentSignatureStatusSchema.nullish(),
+  company_name: z.string().min(1),
+  cnpj: z.string().nullish(),
+  address: z.string().nullish(),
+  sector: z.string().nullish(),
+  objective: z.string().min(1),
+  scope: z.string().nullish(),
+  technical_content: z.string().min(1),
+  recommendations: z.string().nullish(),
+  responsible_name: z.string().min(1),
+  responsible_registry: z.string().min(1),
+  company_representative: z.string().nullish(),
+  issue_date: z.string().nullish(),
+});
+
 export const pgrListItemSchema = z.object({
   id: z.string(),
   status: pgrStatusSchema,
@@ -517,6 +538,7 @@ export type UpdateTraining = z.infer<typeof updateTrainingSchema>;
 
 export type CreatePgrPayload = z.infer<typeof createPgrPayloadSchema>;
 export type UpdatePgrPayload = z.infer<typeof updatePgrPayloadSchema>;
+export type DocumentPdfPayload = z.infer<typeof documentPdfPayloadSchema>;
 
 export type PgrListItem = z.infer<typeof pgrListItemSchema>;
 export type PgrDetail = z.infer<typeof pgrDetailSchema>;

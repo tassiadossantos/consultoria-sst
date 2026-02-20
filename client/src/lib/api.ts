@@ -14,6 +14,7 @@ import type {
   PgrDetail,
   CreatePgrPayload,
   UpdatePgrPayload,
+  DocumentPdfPayload,
 } from "@shared/schema";
 
 export type SstNewsItem = {
@@ -35,6 +36,38 @@ export type ExpiringTrainingsResponse = {
   totalParticipants: number;
   items: Array<Training & { days_until_due: number }>;
 };
+
+export type DeletePgrOptions = {
+  deleteOrphanCompany?: boolean;
+};
+
+export type GenerateDocumentPdfResponse = {
+  blob: Blob;
+  filename: string;
+};
+
+function parseDownloadFilename(contentDisposition: string | null, fallback: string): string {
+  if (!contentDisposition) {
+    return fallback;
+  }
+
+  const utf8Match = /filename\*=UTF-8''([^;]+)/i.exec(contentDisposition);
+  if (utf8Match?.[1]) {
+    return decodeURIComponent(utf8Match[1]);
+  }
+
+  const quotedMatch = /filename=\"([^\"]+)\"/i.exec(contentDisposition);
+  if (quotedMatch?.[1]) {
+    return quotedMatch[1];
+  }
+
+  const simpleMatch = /filename=([^;]+)/i.exec(contentDisposition);
+  if (simpleMatch?.[1]) {
+    return simpleMatch[1].trim();
+  }
+
+  return fallback;
+}
 
 // ── SST News ──────────────────────────────────────────────
 
@@ -89,6 +122,23 @@ export async function downloadPgrPdf(id: string): Promise<Blob> {
   return res.blob();
 }
 
+export async function generateDocumentPdf(
+  payload: DocumentPdfPayload,
+): Promise<GenerateDocumentPdfResponse> {
+  const fallbackFilename = `documento-${payload.template_id || "sst"}.pdf`;
+  const res = await apiRequest("POST", "/api/documents/pdf", payload);
+  const blob = await res.blob();
+  const filename = parseDownloadFilename(
+    res.headers.get("content-disposition"),
+    fallbackFilename,
+  );
+
+  return {
+    blob,
+    filename,
+  };
+}
+
 export async function createPgr(
   payload: CreatePgrPayload,
 ): Promise<string> {
@@ -105,8 +155,15 @@ export async function updatePgr(
   return body.id;
 }
 
-export async function deletePgrApi(id: string): Promise<void> {
-  await apiRequest("DELETE", `/api/pgrs/${id}`);
+export async function deletePgrApi(id: string, options: DeletePgrOptions = {}): Promise<void> {
+  const params = new URLSearchParams();
+  if (options.deleteOrphanCompany) {
+    params.set("delete_orphan_company", "1");
+  }
+
+  const query = params.toString();
+  const endpoint = query ? `/api/pgrs/${id}?${query}` : `/api/pgrs/${id}`;
+  await apiRequest("DELETE", endpoint);
 }
 
 // ── Trainings ──────────────────────────────────────────────

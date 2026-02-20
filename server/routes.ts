@@ -3,6 +3,7 @@ import type { Server } from "http";
 import { z, ZodError } from "zod";
 import {
   createPgrPayloadSchema,
+  documentPdfPayloadSchema,
   insertCompanySchema,
   insertTrainingSchema,
   settingsSchema,
@@ -11,13 +12,14 @@ import {
   updateTrainingSchema,
 } from "@shared/schema";
 import { registerAuthRoutes, requireAuth } from "./auth";
-import { generatePgrPdf } from "./services/pdf";
+import { generateDocumentPdf, generatePgrPdf } from "./services/pdf";
 import { GOV_SST_SOURCE_URL, getLatestGovSstNews } from "./services/govSstNews";
 import {
   DEFAULT_EXPIRING_WINDOW_DAYS,
   listExpiringTrainingsByDate,
   parseWindowDays,
 } from "./services/trainingDue";
+import { validateTrainingNormRules } from "./services/trainingNormValidation";
 import { storage } from "./storage";
 
 function validateBody<T extends z.ZodTypeAny>(
@@ -35,6 +37,25 @@ function getIdParam(req: Request): string | undefined {
     return id[0];
   }
   return id;
+}
+
+function omitUndefined<T extends Record<string, unknown>>(value: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => entry !== undefined),
+  ) as Partial<T>;
+}
+
+function isTruthyQueryValue(value: unknown): boolean {
+  if (Array.isArray(value)) {
+    return value.some((entry) => isTruthyQueryValue(entry));
+  }
+
+  if (typeof value !== "string") {
+    return false;
+  }
+
+  const normalized = value.trim().toLowerCase();
+  return normalized === "1" || normalized === "true" || normalized === "yes";
 }
 
 function getTenantIdOr401(req: Request, res: Response): string | undefined {
@@ -160,6 +181,11 @@ export async function registerRoutes(app: Express, httpServer: Server): Promise<
       const company = await storage.createCompany(tenantId, v.data);
       res.status(201).json(company);
     } catch (err) {
+      const maybeDbError = err as { code?: string };
+      if (maybeDbError?.code === "23505") {
+        return res.status(409).json({ message: "CNPJ already exists for this tenant" });
+      }
+
       console.error(err);
       res.status(500).json({ message: "Failed to create company" });
     }
@@ -272,6 +298,42 @@ export async function registerRoutes(app: Express, httpServer: Server): Promise<
     }
   });
 
+  app.post("/api/documents/pdf", async (req: Request, res: Response) => {
+    const tenantId = getTenantIdOr401(req, res);
+    if (!tenantId) return;
+
+    const v = validateBody(documentPdfPayloadSchema, req.body);
+    if (!v.success) {
+      return res.status(400).json({ message: "Validation failed", errors: v.error.flatten() });
+    }
+
+    try {
+      const generatedAt = new Date();
+      const pdfBuffer = generateDocumentPdf(v.data, {
+        templateId: v.data.template_id,
+        tenantId,
+        userId: req.authUserId,
+        generatedAt,
+      });
+
+      const safeId = v.data.template_id.replace(/[^a-zA-Z0-9_-]/g, "");
+      const dateToken = generatedAt.toISOString().slice(0, 10);
+      const filename = `documento-${safeId || "sst"}-${dateToken}.pdf`;
+
+      console.info(
+        `[AUDIT] Document PDF generated template=${v.data.template_id} tenant=${tenantId} user=${req.authUserId ?? "unknown"} at=${generatedAt.toISOString()} bytes=${pdfBuffer.length}`,
+      );
+
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      res.setHeader("Content-Length", String(pdfBuffer.length));
+      return res.status(200).send(pdfBuffer);
+    } catch (err) {
+      console.error(err);
+      return res.status(500).json({ message: "Failed to generate document PDF" });
+    }
+  });
+
   app.post("/api/pgrs", async (req: Request, res: Response) => {
     const tenantId = getTenantIdOr401(req, res);
     if (!tenantId) return;
@@ -320,9 +382,10 @@ export async function registerRoutes(app: Express, httpServer: Server): Promise<
 
     const id = getIdParam(req);
     if (!id) return res.status(400).json({ message: "Invalid id" });
+    const deleteOrphanCompany = isTruthyQueryValue(req.query.delete_orphan_company);
 
     try {
-      const deleted = await storage.deletePgr(tenantId, id);
+      const deleted = await storage.deletePgr(tenantId, id, { deleteOrphanCompany });
       if (!deleted) return res.status(404).json({ message: "PGR not found" });
       res.status(204).send();
     } catch (err) {
@@ -402,6 +465,10 @@ export async function registerRoutes(app: Express, httpServer: Server): Promise<
     if (!v.success) {
       return res.status(400).json({ message: "Validation failed", errors: v.error.flatten() });
     }
+    const trainingNormError = validateTrainingNormRules(v.data);
+    if (trainingNormError) {
+      return res.status(400).json({ message: trainingNormError });
+    }
 
     try {
       const training = await storage.createTraining(tenantId, v.data);
@@ -423,9 +490,33 @@ export async function registerRoutes(app: Express, httpServer: Server): Promise<
     if (!v.success) {
       return res.status(400).json({ message: "Validation failed", errors: v.error.flatten() });
     }
+    const updatePayload = omitUndefined(v.data);
+    const touchedNormFields = [
+      "title",
+      "training_date",
+      "notes",
+      "participants_count",
+      "participants_label",
+    ].some((field) => field in updatePayload);
 
     try {
-      const training = await storage.updateTraining(tenantId, id, v.data);
+      if (touchedNormFields) {
+        const existing = await storage.getTraining(tenantId, id);
+        if (!existing) {
+          return res.status(404).json({ message: "Training not found" });
+        }
+
+        const mergedForValidation = {
+          ...existing,
+          ...updatePayload,
+        };
+        const trainingNormError = validateTrainingNormRules(mergedForValidation);
+        if (trainingNormError) {
+          return res.status(400).json({ message: trainingNormError });
+        }
+      }
+
+      const training = await storage.updateTraining(tenantId, id, updatePayload);
       if (!training) return res.status(404).json({ message: "Training not found" });
       res.json(training);
     } catch (err) {

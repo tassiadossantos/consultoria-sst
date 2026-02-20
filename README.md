@@ -1,52 +1,52 @@
-# Consultoria SST
+# SST Pro - Plataforma de Consultoria em SST
 
-Plataforma web para gestão de Saúde e Segurança do Trabalho (SST), com foco em PGR, treinamentos e documentos.
+Aplicação web para gestão de Saúde e Segurança do Trabalho com foco em operação diária de consultoria: PGR, treinamentos, documentos técnicos e apoio normativo.
 
-## Visão geral
+## Atualizações das últimas 24h (base: 20/02/2026)
 
-O projeto centraliza operações no backend (Express + PostgreSQL) e entrega frontend React para:
+- Novo fluxo completo de emissão de documentos derivados em `/documentos/novo?tipo=...` com formulário guiado e download de PDF.
+- Novo catálogo de documentos em `client/src/pages/document-templates.ts`, incluindo base normativa e indicação de assinatura (`sim`, `ressalva`, `nao`).
+- Nova rota backend `POST /api/documents/pdf` com validação de payload (`documentPdfPayloadSchema`) e resposta em `application/pdf`.
+- Serviço de PDF expandido em `server/services/pdf.ts` para gerar:
+  - PDF de PGR (`generatePgrPdf`)
+  - PDF de documentos técnicos genéricos (`generateDocumentPdf`)
+- Nova Central de Ajuda em `/ajuda` com:
+  - onboarding rápido;
+  - FAQ por módulo;
+  - guia normativo TST completo (`?topico=guia-tst`).
+- Cadastro de treinamentos reforçado por catálogo de NR (`shared/trainingNormCatalog.ts`) com:
+  - carga horária mínima;
+  - validade em meses;
+  - cálculo automático de vencimento.
+- Validação normativa de treinamentos no backend (`server/services/trainingNormValidation.ts`) em `POST/PUT /api/trainings`.
+- Página de Empresas com validação de CNPJ, prevenção de duplicidade e ação "Salvar e criar PGR".
+- Exclusão de PGR com opção de limpeza de empresa órfã (`DELETE /api/pgrs/:id?delete_orphan_company=1`).
+- Cobertura de testes ampliada para ajuda, geração de documentos/PDF, autorização multi-tenant e regras de treinamento.
+- Ajustes visuais no módulo de Configurações (botões e espaçamento do card).
 
-- gestão de PGRs (cadastro, edição e preview);
-- gestão de empresas;
-- gestão de treinamentos;
-- alertas operacionais no dashboard;
-- atualização de notícias SST do MTE no painel.
+## Funcionalidades atuais
+
+- Dashboard com indicadores de PGR, treinamentos vencendo e notícias oficiais de SST (MTE).
+- CRUD de empresas com vínculo opcional em treinamentos.
+- Wizard de PGR (criação e edição) com inventário de riscos, plano de ação e preview.
+- Preview de PGR com impressão e download de PDF.
+- Gestão de treinamentos por NR com participantes estruturados e vencimento automático.
+- Módulo de documentos derivados com geração assistida de PDF.
+- Configurações administrativas por tenant.
+- Autenticação JWT com escopo multi-tenant.
 
 ## Stack técnica
 
-### Frontend
-
-- React 19 + TypeScript
-- Vite
-- Wouter
-- TanStack Query
-- Tailwind CSS + Radix UI
-
-### Backend
-
-- Node.js + Express
-- JWT para autenticação
-- rotas multi-tenant
-
-### Dados
-
-- PostgreSQL (Supabase)
-- Drizzle ORM
-- Schema compartilhado em `shared/schema.ts`
-
-## Funcionalidades principais
-
-- Dashboard com indicadores de PGR.
-- Card de "Treinamentos Vencendo" baseado em regra de data no backend.
-- Card de "Atualizações SST (MTE)" consumindo notícias externas.
-- CRUD de empresas, PGRs e treinamentos.
-- Download de PDF de PGR (`/api/pgrs/:id/pdf`).
+- Frontend: React 19, TypeScript, Vite, Wouter, TanStack Query, Tailwind CSS, Radix UI.
+- Backend: Node.js, Express, Zod.
+- Dados: PostgreSQL (Supabase), Drizzle ORM, schema compartilhado em `shared/schema.ts`.
+- Testes: Vitest (frontend + backend).
 
 ## Pré-requisitos
 
 - Node.js 20+
 - npm 10+
-- banco PostgreSQL acessível via `DATABASE_URL`
+- PostgreSQL acessível via `DATABASE_URL`
 
 ## Configuração local
 
@@ -56,7 +56,7 @@ O projeto centraliza operações no backend (Express + PostgreSQL) e entrega fro
 npm install
 ```
 
-2. Crie `.env` na raiz (exemplo mínimo):
+2. Crie o arquivo `.env` na raiz:
 
 ```env
 DATABASE_URL=
@@ -64,106 +64,108 @@ JWT_SECRET=
 AUTH_BOOTSTRAP_USERNAME=admin
 AUTH_BOOTSTRAP_PASSWORD=admin123
 AUTH_ALLOW_SIGNUP=false
+AUTH_BOOTSTRAP_TENANT_NAME=Tenant Inicial
 PORT=5000
 NODE_ENV=development
 ```
 
-3. (Opcional) Aplique migrações incrementais do projeto:
-
-```bash
-npm run db:migrate:incremental
-```
-
-4. (Opcional) Sincronize schema via Drizzle:
+3. Opcional: sincronize schema/migrações:
 
 ```bash
 npm run db:push
+npm run db:migrate:incremental
 ```
 
-## Como rodar em desenvolvimento
+## Execução em desenvolvimento
 
-Use dois terminais:
-
-1. Backend/API (porta 5000):
+Modo recomendado (API + frontend no mesmo processo):
 
 ```bash
 npm run dev
 ```
 
-2. Frontend (porta 3000):
+Acesso:
+
+- App/API: `http://127.0.0.1:5000`
+
+Modo alternativo (frontend separado):
 
 ```bash
+npm run dev
 npm run dev:client
 ```
 
-Acesse:
+## Endpoints principais
 
-- Frontend: `http://127.0.0.1:3000`
-- Backend API: `http://127.0.0.1:5000`
+- Auth:
+  - `POST /api/auth/login`
+  - `POST /api/auth/register` (quando `AUTH_ALLOW_SIGNUP=true`)
+  - `GET /api/auth/me`
+- Configurações:
+  - `GET /api/settings`
+  - `PUT /api/settings`
+- Empresas:
+  - `GET /api/companies`
+  - `POST /api/companies`
+  - `PUT /api/companies/:id`
+  - `DELETE /api/companies/:id`
+- PGR:
+  - `GET /api/pgrs`
+  - `GET /api/pgrs/:id`
+  - `POST /api/pgrs`
+  - `PUT /api/pgrs/:id`
+  - `DELETE /api/pgrs/:id`
+  - `GET /api/pgrs/:id/pdf`
+- Documentos:
+  - `POST /api/documents/pdf`
+- Treinamentos:
+  - `GET /api/trainings`
+  - `GET /api/trainings/expiring?window_days=7`
+  - `POST /api/trainings`
+  - `PUT /api/trainings/:id`
+  - `DELETE /api/trainings/:id`
+- Notícias SST:
+  - `GET /api/sst-news`
 
-## Autenticação
+## Scripts úteis
 
-- Rotas `/api/*` exigem Bearer token (exceto `/api/auth/*`).
-- Login: `POST /api/auth/login`.
-- Perfil atual: `GET /api/auth/me`.
-- Em desenvolvimento, o usuário bootstrap é criado automaticamente quando `AUTH_BOOTSTRAP_USERNAME` e `AUTH_BOOTSTRAP_PASSWORD` estão definidos.
+- `npm run dev` - servidor de desenvolvimento (Express + Vite middleware)
+- `npm run dev:client` - frontend Vite separado (porta 3000)
+- `npm run build` - build de produção
+- `npm start` - executa build em `dist/index.cjs`
+- `npm test` - suíte de testes (Vitest)
+- `npm run test:watch` - testes em watch mode
+- `npm run check` - checagem TypeScript
+- `npm run db:push` - sincroniza schema via Drizzle
+- `npm run db:migrate:incremental` - aplica migração incremental SQL
 
-## Regra de vencimento de treinamentos (robusta)
+## Qualidade
 
-A regra de "Treinamentos Vencendo" foi centralizada no backend:
-
-- endpoint: `GET /api/trainings/expiring?window_days=7`
-- cálculo por `training_date` (janela de próximos dias), não por texto fixo de UI;
-- mesma fonte usada no Dashboard e na página de Treinamentos (`status=vencendo`);
-- contagem de participantes baseada em `participants_count` (dado estruturado).
-
-## Endpoints úteis
-
-- `POST /api/auth/login`
-- `GET /api/auth/me`
-- `GET /api/sst-news`
-- `GET /api/trainings`
-- `GET /api/trainings/expiring?window_days=7`
-- `GET /api/pgrs`
-- `GET /api/pgrs/:id/pdf`
-
-## Scripts disponíveis
-
-- `npm run dev` -> backend em modo desenvolvimento
-- `npm run dev:client` -> frontend Vite na porta 3000
-- `npm run build` -> build de produção
-- `npm start` -> executa build (`dist/index.cjs`)
-- `npm test` -> testes (Vitest)
-- `npm run test:watch` -> testes em modo watch
-- `npm run check` -> checagem TypeScript
-- `npm run db:push` -> sincroniza schema Drizzle
-- `npm run db:migrate:incremental` -> aplica migração incremental SQL
-
-## Testes e qualidade
-
-Comandos principais:
+Comandos base:
 
 ```bash
-npm test
 npm run check
+npm test
 ```
+
+Execução mais recente da suíte local:
+
+- `29` arquivos de teste aprovados
+- `128` testes aprovados
 
 ## Estrutura do projeto
 
 ```text
-client/            # aplicação React
-server/            # API Express, auth, jobs e serviços
-shared/            # schema e tipos compartilhados
-script/            # scripts utilitários de build/migração
-supabase/          # SQL e artefatos de banco
+client/     frontend React
+server/     API Express, auth, jobs e serviços
+shared/     schemas/tipos compartilhados (Zod + Drizzle)
+script/     scripts de build/migração
+supabase/   artefatos SQL
 ```
 
 ## Troubleshooting rápido
 
-- Login mostrando erro 500: backend provavelmente não está em execução (`npm run dev`).
-- Login com 401: credenciais inválidas.
-- Frontend sem dados: valide token JWT e `DATABASE_URL`.
-
----
-
-Para melhorias e bugs, abra uma issue no repositório.
+- `401 Unauthorized`: token ausente/expirado -> refaça login.
+- `403 Forbidden` em `/api/settings`: usuário sem role `admin`.
+- `500` em rotas de dados: validar `DATABASE_URL` e conexão do banco.
+- Treinamento rejeitado em `POST/PUT /api/trainings`: revisar metadata normativa em `notes` (NR, carga horária, data e validade).

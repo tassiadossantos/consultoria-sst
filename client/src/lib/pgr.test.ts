@@ -113,4 +113,15 @@ describe("api – pgr functions", () => {
 
     expect(apiRequestMock).toHaveBeenCalledWith("DELETE", "/api/pgrs/pgr-1");
   });
+
+  it("deletePgrApi appends query when deleting orphan company is enabled", async () => {
+    apiRequestMock.mockResolvedValue({});
+
+    await deletePgrApi("pgr-1", { deleteOrphanCompany: true });
+
+    expect(apiRequestMock).toHaveBeenCalledWith(
+      "DELETE",
+      "/api/pgrs/pgr-1?delete_orphan_company=1",
+    );
+  });
 });

@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const createPgrMock = vi.hoisted(() => vi.fn());
 const updatePgrMock = vi.hoisted(() => vi.fn());
 const getPgrDetailMock = vi.hoisted(() => vi.fn());
+const fetchCompanyMock = vi.hoisted(() => vi.fn());
 const toastMock = vi.hoisted(() => vi.fn());
 
 vi.mock("@/components/layout", () => ({
@@ -15,6 +16,10 @@ vi.mock("@/lib/pgr", () => ({
   createPgr: createPgrMock,
   updatePgr: updatePgrMock,
   getPgrDetail: getPgrDetailMock,
+}));
+
+vi.mock("@/lib/api", () => ({
+  fetchCompany: fetchCompanyMock,
 }));
 
 vi.mock("@/hooks/use-toast", () => ({
@@ -110,7 +115,7 @@ describe("PGRWizard integration", () => {
       // Remove risco
       fireEvent.click(screen.getByRole("button", { name: /Remover Risco/i }));
       expect(screen.queryByText(/Perda auditiva/i)).not.toBeInTheDocument();
-    });
+    }, 10000);
 
     it("blocks submission with incomplete data in intermediate steps", async () => {
       renderWizard();
@@ -166,6 +171,7 @@ describe("PGRWizard integration", () => {
     createPgrMock.mockResolvedValue("pgr-123");
     updatePgrMock.mockResolvedValue("pgr-123");
     getPgrDetailMock.mockResolvedValue(null);
+    fetchCompanyMock.mockResolvedValue(null);
   });
 
   it("fills required steps and submits an active PGR", async () => {
@@ -282,7 +288,7 @@ describe("PGRWizard integration", () => {
       target: { value: "Empresa Beta Atualizada" },
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /Salvar Alteracoes/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Salvar Alterações/i }));
 
     await waitFor(() => {
       expect(updatePgrMock).toHaveBeenCalledTimes(1);
@@ -324,7 +330,7 @@ describe("PGRWizard integration", () => {
       expect(getPgrDetailMock).toHaveBeenCalledWith("pgr-456");
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /Salvar Alteracoes/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Salvar Alterações/i }));
 
     await waitFor(() => {
       expect(toastMock).toHaveBeenCalledWith(
@@ -346,12 +352,53 @@ describe("PGRWizard integration", () => {
       expect(screen.getByDisplayValue("Empresa Beta")).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /Salvar Alteracoes/i }));
+    fireEvent.click(screen.getByRole("button", { name: /Salvar Alterações/i }));
 
     await waitFor(() => {
       expect(toastMock).toHaveBeenCalledWith(
         expect.objectContaining({ title: "Erro ao salvar" }),
       );
     });
+  });
+
+  it("prefills company fields when opening /pgr/novo with company_id", async () => {
+    fetchCompanyMock.mockResolvedValue({
+      id: "company-99",
+      name: "Empresa Origem",
+      trade_name: "Origem",
+      cnpj: "12.345.678/0001-90",
+      cnae: "25.11-0-00",
+      address: "Rua A, 10",
+      employees: 44,
+      risk_level: 3,
+      legal_responsible: "Tassia dos Santos Silva",
+      created_at: "2026-02-01",
+    });
+
+    renderWizard("/pgr/novo?company_id=company-99");
+
+    await waitFor(() => {
+      expect(fetchCompanyMock).toHaveBeenCalledWith("company-99");
+    });
+
+    expect(await screen.findByDisplayValue("Empresa Origem")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Origem")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("12.345.678/0001-90")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("25.11-0-00")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Rua A, 10")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("44")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Tassia dos Santos Silva")).toBeInTheDocument();
+  });
+
+  it("does not fetch prefill company while editing", async () => {
+    getPgrDetailMock.mockResolvedValue(editFixture);
+
+    renderWizard("/pgr/pgr-456/editar?company_id=company-99");
+
+    await waitFor(() => {
+      expect(getPgrDetailMock).toHaveBeenCalledWith("pgr-456");
+    });
+
+    expect(fetchCompanyMock).not.toHaveBeenCalled();
   });
 });

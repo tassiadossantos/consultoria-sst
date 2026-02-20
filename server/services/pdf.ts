@@ -1,4 +1,4 @@
-import type { PgrDetail } from "@shared/schema";
+import type { DocumentPdfPayload, PgrDetail } from "@shared/schema";
 
 const PAGE_WIDTH = 595;
 const PAGE_HEIGHT = 842;
@@ -10,6 +10,13 @@ const MAX_CHARS_PER_LINE = 95;
 
 type GeneratePgrPdfOptions = {
   documentId: string;
+  tenantId: string;
+  userId?: string;
+  generatedAt?: Date;
+};
+
+type GenerateDocumentPdfOptions = {
+  templateId: string;
   tenantId: string;
   userId?: string;
   generatedAt?: Date;
@@ -90,113 +97,169 @@ function toPtBrDate(value: unknown): string {
   return date.toLocaleDateString("pt-BR");
 }
 
+function pushSectionTitle(lines: string[], title: string): void {
+  lines.push("");
+  lines.push(title.toUpperCase());
+  lines.push("-".repeat(title.length));
+}
+
+function pushWrappedValue(lines: string[], label: string, value: unknown): void {
+  const wrapped = wrapText(sanitizeInputText(value), MAX_CHARS_PER_LINE - label.length - 2);
+  if (wrapped.length === 0) {
+    lines.push(`${label}: -`);
+    return;
+  }
+
+  lines.push(`${label}: ${wrapped[0]}`);
+  for (let i = 1; i < wrapped.length; i += 1) {
+    lines.push(`${" ".repeat(label.length + 2)}${wrapped[i]}`);
+  }
+}
+
 function buildDocumentLines(detail: PgrDetail, options: Required<GeneratePgrPdfOptions>): string[] {
   const { pgr, company, risks, actions } = detail;
   const safeRisks = Array.isArray(risks) ? risks : [];
   const safeActions = Array.isArray(actions) ? actions : [];
   const lines: string[] = [];
 
-  const addSectionTitle = (title: string) => {
-    lines.push("");
-    lines.push(title.toUpperCase());
-    lines.push("-".repeat(title.length));
-  };
-
-  const addWrappedValue = (label: string, value: unknown) => {
-    const wrapped = wrapText(sanitizeInputText(value), MAX_CHARS_PER_LINE - label.length - 2);
-    if (wrapped.length === 0) {
-      lines.push(`${label}: -`);
-      return;
-    }
-
-    lines.push(`${label}: ${wrapped[0]}`);
-    for (let i = 1; i < wrapped.length; i += 1) {
-      lines.push(`${" ".repeat(label.length + 2)}${wrapped[i]}`);
-    }
-  };
-
   lines.push("PGR - PROGRAMA DE GERENCIAMENTO DE RISCOS");
   lines.push("Conforme NR-01");
   lines.push("");
   lines.push(`Documento: ${options.documentId}`);
   lines.push(`Tenant: ${options.tenantId}`);
-  lines.push(`Usuario: ${options.userId ?? "nao informado"}`);
+  lines.push(`Usuário: ${options.userId ?? "não informado"}`);
   lines.push(`Gerado em: ${options.generatedAt.toLocaleString("pt-BR")}`);
   lines.push("");
-  lines.push(`Revisao: ${pgr.revision}`);
+  lines.push(`Revisão: ${pgr.revision}`);
   lines.push(`Status: ${pgr.status}`);
   lines.push(`Criado em: ${toPtBrDate(pgr.created_at)}`);
-  lines.push(`Valido ate: ${toPtBrDate(pgr.valid_until)}`);
+  lines.push(`Válido até: ${toPtBrDate(pgr.valid_until)}`);
 
-  addSectionTitle("1. Identificacao da Empresa");
-  addWrappedValue("Razao social", company?.name ?? "Nao informado");
-  addWrappedValue("CNPJ", company?.cnpj ?? "-");
-  addWrappedValue("CNAE", company?.cnae ?? "-");
-  addWrappedValue("Endereco", company?.address ?? "Nao informado");
-  addWrappedValue("Grau de risco", company?.risk_level ?? "-");
-  addWrappedValue("Numero de funcionarios", company?.employees ?? "-");
-  addWrappedValue("Responsavel legal", company?.legal_responsible ?? "-");
+  pushSectionTitle(lines, "1. Identificação da Empresa");
+  pushWrappedValue(lines, "Razão social", company?.name ?? "Não informado");
+  pushWrappedValue(lines, "CNPJ", company?.cnpj ?? "-");
+  pushWrappedValue(lines, "CNAE", company?.cnae ?? "-");
+  pushWrappedValue(lines, "Endereço", company?.address ?? "Não informado");
+  pushWrappedValue(lines, "Grau de risco", company?.risk_level ?? "-");
+  pushWrappedValue(lines, "Número de funcionários", company?.employees ?? "-");
+  pushWrappedValue(lines, "Responsável legal", company?.legal_responsible ?? "-");
 
-  addSectionTitle("2. Caracterizacao da Empresa");
+  pushSectionTitle(lines, "2. Caracterização da Empresa");
   wrapText(sanitizeInputText(pgr.characterization), MAX_CHARS_PER_LINE).forEach((line) => lines.push(line));
 
-  addSectionTitle("2.1 Responsabilidades");
+  pushSectionTitle(lines, "2.1 Responsabilidades");
   wrapText(sanitizeInputText(pgr.responsibilities), MAX_CHARS_PER_LINE).forEach((line) => lines.push(line));
 
-  addSectionTitle("3. Inventario de Riscos Ocupacionais");
+  pushSectionTitle(lines, "3. Inventário de Riscos Ocupacionais");
   if (safeRisks.length === 0) {
     lines.push("Nenhum risco registrado.");
   } else {
     safeRisks.forEach((risk, index) => {
       lines.push(`Risco ${index + 1}`);
-      addWrappedValue("Setor", risk.sector ?? "-");
-      addWrappedValue("Funcao", risk.role ?? "-");
-      addWrappedValue("Perigo", risk.hazard ?? "-");
-      addWrappedValue("Risco", risk.risk ?? "-");
-      addWrappedValue(
-        "Classificacao",
+      pushWrappedValue(lines, "Setor", risk.sector ?? "-");
+      pushWrappedValue(lines, "Função", risk.role ?? "-");
+      pushWrappedValue(lines, "Perigo", risk.hazard ?? "-");
+      pushWrappedValue(lines, "Risco", risk.risk ?? "-");
+      pushWrappedValue(
+        lines,
+        "Classificação",
         `${risk.risk_level ?? "-"} (score: ${risk.risk_score ?? "-"})`,
       );
-      addWrappedValue("Tipo", risk.risk_type ?? "-");
-      addWrappedValue("Probabilidade", risk.probability ?? "-");
-      addWrappedValue("Severidade", risk.severity ?? "-");
-      addWrappedValue("Controles", risk.controls ?? "-");
-      addWrappedValue("EPI", risk.epi ?? "-");
+      pushWrappedValue(lines, "Tipo", risk.risk_type ?? "-");
+      pushWrappedValue(lines, "Probabilidade", risk.probability ?? "-");
+      pushWrappedValue(lines, "Severidade", risk.severity ?? "-");
+      pushWrappedValue(lines, "Controles", risk.controls ?? "-");
+      pushWrappedValue(lines, "EPI", risk.epi ?? "-");
       lines.push("");
     });
   }
 
-  addSectionTitle("4. Avaliacao e Classificacao");
+  pushSectionTitle(lines, "4. Avaliação e Classificação");
   wrapText(sanitizeInputText(pgr.risk_criteria), MAX_CHARS_PER_LINE).forEach((line) => lines.push(line));
 
-  addSectionTitle("5. Medidas de Prevencao e Controle");
+  pushSectionTitle(lines, "5. Medidas de Prevenção e Controle");
   wrapText(sanitizeInputText(pgr.control_measures), MAX_CHARS_PER_LINE).forEach((line) => lines.push(line));
 
-  addSectionTitle("6. Plano de Acao");
+  pushSectionTitle(lines, "6. Plano de Ação");
   if (safeActions.length === 0) {
-    lines.push("Nenhuma acao registrada.");
+    lines.push("Nenhuma ação registrada.");
   } else {
     safeActions.forEach((action, index) => {
-      lines.push(`Acao ${index + 1}`);
-      addWrappedValue("Descricao", action.action ?? "-");
-      addWrappedValue("Responsavel", action.owner ?? "-");
-      addWrappedValue("Prazo", toPtBrDate(action.due_date));
-      addWrappedValue("Status", action.status ?? "-");
+      lines.push(`Ação ${index + 1}`);
+      pushWrappedValue(lines, "Descrição", action.action ?? "-");
+      pushWrappedValue(lines, "Responsável", action.owner ?? "-");
+      pushWrappedValue(lines, "Prazo", toPtBrDate(action.due_date));
+      pushWrappedValue(lines, "Status", action.status ?? "-");
       lines.push("");
     });
   }
 
-  addSectionTitle("7. Treinamentos e Capacitacoes");
+  pushSectionTitle(lines, "7. Treinamentos e Capacitações");
   wrapText(sanitizeInputText(pgr.training_plan), MAX_CHARS_PER_LINE).forEach((line) => lines.push(line));
 
-  addSectionTitle("8. Monitoramento e Revisao");
+  pushSectionTitle(lines, "8. Monitoramento e Revisão");
   wrapText(sanitizeInputText(pgr.monitoring), MAX_CHARS_PER_LINE).forEach((line) => lines.push(line));
 
   lines.push("");
   lines.push("Assinaturas");
   lines.push("Empresa: __________________________________________");
-  lines.push("Responsavel tecnico: _______________________________");
+  lines.push("Responsável técnico: _______________________________");
   lines.push(`Registro MTE: ${sanitizeInputText(pgr.responsible_registry)}`);
+
+  return lines;
+}
+
+function buildGeneratedDocumentLines(
+  payload: DocumentPdfPayload,
+  options: Required<GenerateDocumentPdfOptions>,
+): string[] {
+  const lines: string[] = [];
+
+  lines.push("DOCUMENTO TÉCNICO DE SST");
+  lines.push("Geração assistida pelo sistema");
+  lines.push("");
+  lines.push(`Modelo: ${payload.template_title}`);
+  lines.push(`Template ID: ${options.templateId}`);
+  lines.push(`Base normativa: ${sanitizeInputText(payload.normative_base)}`);
+  lines.push(`Pode assinar: ${sanitizeInputText(payload.signature_status)}`);
+  lines.push("");
+  lines.push(`Tenant: ${options.tenantId}`);
+  lines.push(`Usuário: ${options.userId ?? "não informado"}`);
+  lines.push(`Gerado em: ${options.generatedAt.toLocaleString("pt-BR")}`);
+  lines.push(`Data de emissão: ${toPtBrDate(payload.issue_date)}`);
+
+  pushSectionTitle(lines, "1. Identificação da Empresa");
+  pushWrappedValue(lines, "Razão social", payload.company_name);
+  pushWrappedValue(lines, "CNPJ", payload.cnpj);
+  pushWrappedValue(lines, "Endereço", payload.address);
+  pushWrappedValue(lines, "Setor / área", payload.sector);
+
+  pushSectionTitle(lines, "2. Conteúdo Técnico");
+  pushWrappedValue(lines, "Objetivo", payload.objective);
+  lines.push("");
+  lines.push("Escopo");
+  lines.push("-".repeat("Escopo".length));
+  wrapText(sanitizeInputText(payload.scope), MAX_CHARS_PER_LINE).forEach((line) => lines.push(line));
+
+  lines.push("");
+  lines.push("Conteúdo técnico principal");
+  lines.push("-".repeat("Conteúdo técnico principal".length));
+  wrapText(sanitizeInputText(payload.technical_content), MAX_CHARS_PER_LINE).forEach((line) => lines.push(line));
+
+  lines.push("");
+  lines.push("Recomendações e plano de acompanhamento");
+  lines.push("-".repeat("Recomendações e plano de acompanhamento".length));
+  wrapText(sanitizeInputText(payload.recommendations), MAX_CHARS_PER_LINE).forEach((line) => lines.push(line));
+
+  pushSectionTitle(lines, "3. Responsáveis e Assinatura");
+  pushWrappedValue(lines, "Responsável técnico", payload.responsible_name);
+  pushWrappedValue(lines, "Registro profissional", payload.responsible_registry);
+  pushWrappedValue(lines, "Representante da empresa", payload.company_representative);
+
+  lines.push("");
+  lines.push("Assinaturas");
+  lines.push("Responsável técnico: _______________________________");
+  lines.push("Representante da empresa: __________________________");
 
   return lines;
 }
@@ -230,16 +293,8 @@ function buildPageContentStream(lines: string[]): string {
   return commands.join("\n");
 }
 
-export function generatePgrPdf(detail: PgrDetail, options: GeneratePgrPdfOptions): Buffer {
-  const normalizedOptions: Required<GeneratePgrPdfOptions> = {
-    documentId: options.documentId,
-    tenantId: options.tenantId,
-    userId: options.userId ?? "nao informado",
-    generatedAt: options.generatedAt ?? new Date(),
-  };
-
-  const documentLines = buildDocumentLines(detail, normalizedOptions);
-  const pages = chunkLinesIntoPages(documentLines);
+function buildPdfFromLines(lines: string[]): Buffer {
+  const pages = chunkLinesIntoPages(lines);
 
   const objects = new Map<number, string>();
   const catalogObjectId = 1;
@@ -295,4 +350,31 @@ export function generatePgrPdf(detail: PgrDetail, options: GeneratePgrPdfOptions
   pdf += `startxref\n${xrefOffset}\n%%EOF`;
 
   return Buffer.from(pdf, "binary");
+}
+
+export function generatePgrPdf(detail: PgrDetail, options: GeneratePgrPdfOptions): Buffer {
+  const normalizedOptions: Required<GeneratePgrPdfOptions> = {
+    documentId: options.documentId,
+    tenantId: options.tenantId,
+    userId: options.userId ?? "não informado",
+    generatedAt: options.generatedAt ?? new Date(),
+  };
+
+  const documentLines = buildDocumentLines(detail, normalizedOptions);
+  return buildPdfFromLines(documentLines);
+}
+
+export function generateDocumentPdf(
+  payload: DocumentPdfPayload,
+  options: GenerateDocumentPdfOptions,
+): Buffer {
+  const normalizedOptions: Required<GenerateDocumentPdfOptions> = {
+    templateId: options.templateId,
+    tenantId: options.tenantId,
+    userId: options.userId ?? "não informado",
+    generatedAt: options.generatedAt ?? new Date(),
+  };
+
+  const documentLines = buildGeneratedDocumentLines(payload, normalizedOptions);
+  return buildPdfFromLines(documentLines);
 }

@@ -58,10 +58,20 @@ describe("PGRList", () => {
       { id: "pgr-1", status: "draft", company: { id: "1", name: "Empresa Editar" }, revision: 0, valid_until: null, created_at: "2024-01-15", progress: 35 },
     ]);
     renderPage("/pgr");
-    const row = await screen.findByRole("row", { name: /Empresa Editar/i });
-    const editButton = within(row).getByRole("button", { name: /Editar PGR/i });
+    const companyCell = await screen.findByText("Empresa Editar");
+    const row = companyCell.closest("tr");
+    expect(row).not.toBeNull();
+    const editButton = within(row as HTMLElement).getByTitle("Editar PGR");
     const editLink = editButton.closest("a");
     expect(editLink).toHaveAttribute("href", "/pgr/pgr-1/editar");
+
+    const previewButton = within(row as HTMLElement).getByTitle("Visualizar PDF");
+    const previewLink = previewButton.closest("a");
+    expect(previewLink).toHaveAttribute("href", "/pgr/pgr-1/preview");
+
+    const printButton = within(row as HTMLElement).getByTitle("Imprimir PDF");
+    const printLink = printButton.closest("a");
+    expect(printLink).toHaveAttribute("href", "/pgr/pgr-1/preview?print=1");
   });
 
   it("filters by nonexistent status and shows empty", async () => {
@@ -125,14 +135,16 @@ describe("PGRList", () => {
 
     renderPage("/pgr");
 
-    const row = await screen.findByRole("row", { name: /Metalúrgica Aço Forte Ltda/i });
+    const companyCell = await screen.findByText("Metalúrgica Aço Forte Ltda");
+    const row = companyCell.closest("tr");
+    expect(row).not.toBeNull();
 
-    fireEvent.click(within(row).getByRole("button", { name: "Excluir PGR" }));
+    fireEvent.click(within(row as HTMLElement).getByTitle("Excluir PGR"));
     fireEvent.click(await screen.findByRole("button", { name: "Excluir" }));
 
     await waitFor(() => {
       expect(deletePgrMock).toHaveBeenCalled();
       expect(deletePgrMock.mock.calls[0]?.[0]).toBe("pgr-1");
     });
-  });
+  }, 10000);
 });

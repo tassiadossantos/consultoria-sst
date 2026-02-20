@@ -21,7 +21,7 @@ interface LayoutProps {
 }
 
 export function Layout({ children }: LayoutProps) {
-  const [location] = useLocation();
+  const [location, setLocation] = useLocation();
   const [sidebarOpen, setSidebarOpen] = React.useState(true);
   const isMobile = useIsMobile();
   const { logout } = useAuth();
@@ -34,6 +34,11 @@ export function Layout({ children }: LayoutProps) {
     { name: "Documentos", href: "/documentos", icon: ClipboardCheck },
     { name: "Configurações", href: "/configuracoes", icon: Settings },
   ];
+
+  const pageTitle =
+    location.startsWith("/ajuda")
+      ? "Ajuda"
+      : navigation.find(n => n.href === location || (n.href !== "/" && location.startsWith(n.href)))?.name || "Dashboard";
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -108,14 +113,18 @@ export function Layout({ children }: LayoutProps) {
               <Menu className="w-5 h-5" />
             </Button>
             <h1 className="text-lg font-semibold text-foreground hidden md:block">
-              {navigation.find(n => n.href === location || (n.href !== "/" && location.startsWith(n.href)))?.name || "Dashboard"}
+              {pageTitle}
             </h1>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" className="hidden sm:flex">
+            <Button
+              size="sm"
+              className="hidden sm:flex"
+              onClick={() => setLocation("/ajuda")}
+            >
               Ajuda
             </Button>
-            <Button variant="secondary" size="sm" onClick={() => void logout()}>
+            <Button size="sm" onClick={() => void logout()}>
               Sair
             </Button>
           </div>

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Printer, ArrowLeft, Download } from "lucide-react";
@@ -9,6 +10,8 @@ import type { PgrDetail } from "@shared/schema";
 export default function DocumentPreview() {
   const [match, params] = useRoute("/pgr/:id/preview");
   const pgrId = params?.id;
+  const autoPrintRequested = new URLSearchParams(window.location.search).get("print") === "1";
+  const hasTriggeredAutoPrint = useRef(false);
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ["pgr", pgrId],
@@ -37,6 +40,17 @@ export default function DocumentPreview() {
       console.error("Failed to download server-side PDF", error);
     }
   };
+
+  useEffect(() => {
+    if (!autoPrintRequested || hasTriggeredAutoPrint.current || isLoading || isError || !data) {
+      return;
+    }
+
+    hasTriggeredAutoPrint.current = true;
+    window.requestAnimationFrame(() => {
+      window.print();
+    });
+  }, [autoPrintRequested, data, isError, isLoading]);
 
   if (isLoading) {
     return (
@@ -250,7 +264,7 @@ export default function DocumentPreview() {
 
         {/* 7. Treinamentos */}
         <section className="mb-8 break-inside-avoid">
-          <h2 className="text-sm font-bold bg-slate-100 p-2 border-l-4 border-slate-800 mb-4 uppercase">7. Treinamentos e Capacitacoes</h2>
+          <h2 className="text-sm font-bold bg-slate-100 p-2 border-l-4 border-slate-800 mb-4 uppercase">7. Treinamentos e Capacitações</h2>
           <div className="text-sm text-slate-700 whitespace-pre-wrap">
             {pgr.training_plan ?? "Não informado"}
           </div>

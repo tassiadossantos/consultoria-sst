@@ -53,7 +53,7 @@ function apiUrl(baseUrl: string, path: string): string {
   return `${baseUrl}${path}`;
 }
 
-describe("PGR PDF route", () => {
+describe("Document PDF route", () => {
   let server: Server;
   let baseUrl = "";
 
@@ -103,62 +103,67 @@ describe("PGR PDF route", () => {
     );
   });
 
-  it("returns 404 when PGR does not exist in tenant scope", async () => {
-    storageMock.getPgrDetail.mockResolvedValue(undefined);
-
-    const response = await fetch(apiUrl(baseUrl, "/api/pgrs/pgr-nao-existe/pdf"), {
-      method: "GET",
+  it("returns 400 when payload is invalid", async () => {
+    const response = await fetch(apiUrl(baseUrl, "/api/documents/pdf"), {
+      method: "POST",
       headers: {
+        "content-type": "application/json",
         "x-tenant-id": "tenant-a",
       },
+      body: JSON.stringify({}),
     });
 
-    expect(response.status).toBe(404);
-    expect(storageMock.getPgrDetail).toHaveBeenCalledWith("tenant-a", "pgr-nao-existe");
-    expect(pdfServiceMock.generatePgrPdf).not.toHaveBeenCalled();
+    expect(response.status).toBe(400);
+    expect(pdfServiceMock.generateDocumentPdf).not.toHaveBeenCalled();
   });
 
-  it("returns application/pdf with attachment when PGR exists", async () => {
-    storageMock.getPgrDetail.mockResolvedValue({
-      pgr: {
-        id: "pgr-1",
-        tenant_id: "tenant-a",
-        company_id: "company-1",
-        status: "active",
-        revision: 1,
-        valid_until: null,
-        created_at: "2026-02-19T12:00:00.000Z",
-        updated_at: null,
-        characterization: null,
-        responsibilities: null,
-        risk_criteria: null,
-        control_measures: null,
-        training_plan: null,
-        monitoring: null,
-        responsible_name: null,
-        responsible_registry: null,
-        progress: 0,
-      },
-      company: null,
-      risks: [],
-      actions: [],
-    });
-
+  it("returns application/pdf attachment when payload is valid", async () => {
     const pdfBytes = Buffer.from("%PDF-1.4\nmock", "binary");
-    pdfServiceMock.generatePgrPdf.mockReturnValue(pdfBytes);
+    pdfServiceMock.generateDocumentPdf.mockReturnValue(pdfBytes);
 
-    const response = await fetch(apiUrl(baseUrl, "/api/pgrs/pgr-1/pdf"), {
-      method: "GET",
+    const response = await fetch(apiUrl(baseUrl, "/api/documents/pdf"), {
+      method: "POST",
       headers: {
+        "content-type": "application/json",
         "x-tenant-id": "tenant-a",
       },
+      body: JSON.stringify({
+        template_id: "apr",
+        template_title: "APR - Análise Preliminar de Risco",
+        normative_base: "NR 12, NR 18, NR 20, NR 33 e NR 35",
+        signature_status: "sim",
+        company_name: "Empresa Teste",
+        cnpj: "12.345.678/0001-90",
+        address: "Rua Teste, 100",
+        sector: "Manutencao",
+        objective: "Avaliar riscos da atividade",
+        scope: "Equipe de manutencao",
+        technical_content: "Riscos, medidas e controles",
+        recommendations: "Acompanhar semanalmente",
+        responsible_name: "Tecnico Teste",
+        responsible_registry: "00.1234/SP",
+        company_representative: "Gestor da Empresa",
+        issue_date: "2026-02-19",
+      }),
     });
 
     expect(response.status).toBe(200);
     expect(response.headers.get("content-type")).toBe("application/pdf");
     expect(response.headers.get("content-disposition")).toContain("attachment");
-    expect(response.headers.get("content-disposition")).toContain("pgr-pgr-1.pdf");
-    expect(pdfServiceMock.generatePgrPdf).toHaveBeenCalledTimes(1);
+    expect(response.headers.get("content-disposition")).toContain("documento-apr-");
+    expect(pdfServiceMock.generateDocumentPdf).toHaveBeenCalledTimes(1);
+    expect(pdfServiceMock.generateDocumentPdf).toHaveBeenCalledWith(
+      expect.objectContaining({
+        template_id: "apr",
+        template_title: "APR - Análise Preliminar de Risco",
+        company_name: "Empresa Teste",
+      }),
+      expect.objectContaining({
+        templateId: "apr",
+        tenantId: "tenant-a",
+        userId: "user-test",
+      }),
+    );
 
     const body = await response.arrayBuffer();
     expect(Buffer.from(body).equals(pdfBytes)).toBe(true);
