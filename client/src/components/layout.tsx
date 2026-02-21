@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useAuth } from "@/lib/auth-context";
+import logoImg from "@/assets/images/logo-shield.png";
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -51,11 +52,16 @@ export function Layout({ children }: LayoutProps) {
         )}
       >
         <div className="h-16 flex items-center px-4 border-b border-sidebar-border gap-3 min-w-0">
-          {sidebarOpen && (
-            <span className="font-bold text-lg tracking-tight max-w-[11rem] flex flex-col items-start">
-              <span>Escudo</span>
-              <span>Consultoria em SST</span>
-            </span>
+          {sidebarOpen ? (
+            <>
+              <img src={logoImg} alt="Escudo SST Logo" className="h-9 w-9 object-contain shrink-0" />
+              <span className="font-bold text-base leading-tight">
+                <span className="block">Escudo</span>
+                <span className="block text-xs font-medium text-sidebar-foreground/80">Consultoria em SST</span>
+              </span>
+            </>
+          ) : (
+            <img src={logoImg} alt="Escudo SST Logo" className="h-8 w-8 object-contain mx-auto" />
           )}
         </div>
 
@@ -139,3 +145,4 @@ export function Layout({ children }: LayoutProps) {
     </div>
   );
 }
+
