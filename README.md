@@ -1,9 +1,13 @@
-# SST Pro - Plataforma de Consultoria em SST
+# Escudo SST - Plataforma de Consultoria em SST
 
 Aplicação web para gestão de Saúde e Segurança do Trabalho com foco em operação diária de consultoria: PGR, treinamentos, documentos técnicos e apoio normativo.
 
-## Atualizações das últimas 24h (base: 20/02/2026)
+## Atualizações recentes (base: 21/02/2026)
 
+- Identidade visual atualizada para a marca Escudo SST.
+- Logo centralizada acima do card na tela de login (`/login`), com nome e subtítulo.
+- Logo aplicada no cabeçalho da sidebar (expandida e recolhida).
+- Favicon configurado com fallback completo (`/favicon.ico` e `/favicon.png`) no `head`.
 - Novo fluxo completo de emissão de documentos derivados em `/documentos/novo?tipo=...` com formulário guiado e download de PDF.
 - Novo catálogo de documentos em `client/src/pages/document-templates.ts`, incluindo base normativa e indicação de assinatura (`sim`, `ressalva`, `nao`).
 - Nova rota backend `POST /api/documents/pdf` com validação de payload (`documentPdfPayloadSchema`) e resposta em `application/pdf`.
@@ -148,7 +152,7 @@ npm run check
 npm test
 ```
 
-Execução mais recente da suíte local:
+Execução local de referência em 21/02/2026:
 
 - `29` arquivos de teste aprovados
 - `128` testes aprovados
