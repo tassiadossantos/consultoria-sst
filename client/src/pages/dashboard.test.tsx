@@ -256,7 +256,7 @@ describe("Dashboard page", () => {
     expect(draftCardLink).toHaveAttribute("href", "/pgr?status=draft");
   });
 
-  it("navigates to PGR list when clicking Total Empresas card", async () => {
+  it("navigates to companies list when clicking Total Empresas card", async () => {
     fetchPgrsMock.mockResolvedValue(pgrsFixture);
     fetchCompaniesMock.mockResolvedValue(companiesFixture);
     fetchSstNewsMock.mockResolvedValue(sstNewsFixture);
@@ -265,6 +265,6 @@ describe("Dashboard page", () => {
 
     const companiesCardLink = (await screen.findByText("Total Empresas")).closest("a");
 
-    expect(companiesCardLink).toHaveAttribute("href", "/pgr");
+    expect(companiesCardLink).toHaveAttribute("href", "/empresas");
   });
 });

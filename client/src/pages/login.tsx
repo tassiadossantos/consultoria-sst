@@ -71,7 +71,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/40 flex items-center justify-center p-4">
       <div className="w-full max-w-md flex flex-col items-center gap-5">
         <img
           src={logoImg}
@@ -83,7 +83,7 @@ export default function LoginPage() {
           <p className="text-sm text-muted-foreground">Gestão de Segurança do Trabalho</p>
         </div>
 
-        <Card className="w-full">
+        <Card className="w-full shadow-lg shadow-primary/10">
           <CardHeader>
             <CardTitle>Acessar plataforma</CardTitle>
             <CardDescription>Faça login para acessar os módulos de SST.</CardDescription>

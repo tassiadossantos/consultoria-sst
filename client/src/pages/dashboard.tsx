@@ -190,7 +190,7 @@ export default function Dashboard() {
             </Card>
           </Link>
 
-          <Link href="/pgr">
+          <Link href="/empresas">
             <Card className="hover:shadow-md transition-all border-l-4 border-l-blue-500 cursor-pointer">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Empresas</CardTitle>
@@ -218,49 +218,57 @@ export default function Dashboard() {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
-                {pgrs.map((pgr) => {
-                  const pgrHref =
-                    pgr.status === "draft"
-                      ? `/pgr/${pgr.id}/editar`
-                      : `/pgr/${pgr.id}/preview`;
+              {pgrs.length === 0 ? (
+                <div className="rounded-lg border border-dashed p-6 text-center">
+                  <p className="text-sm text-muted-foreground">
+                    Nenhum PGR encontrado. Crie seu primeiro PGR para iniciar o acompanhamento.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {pgrs.map((pgr) => {
+                    const pgrHref =
+                      pgr.status === "draft"
+                        ? `/pgr/${pgr.id}/editar`
+                        : `/pgr/${pgr.id}/preview`;
 
-                  return (
-                    <Link key={pgr.id} href={pgrHref}>
-                      <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors group cursor-pointer">
-                        <div className="flex items-center gap-4">
-                          <div
-                            className={`w-2 h-12 rounded-full ${
-                              pgr.status === "active"
-                                ? "bg-emerald-500"
-                                : pgr.status === "expired"
-                                  ? "bg-destructive"
-                                  : "bg-amber-500"
-                            }`}
-                          />
-                          <div>
-                            <p className="font-medium group-hover:text-primary transition-colors">{pgr.company?.name ?? "Empresa"}</p>
-                            <p className="text-sm text-muted-foreground">Rev. {pgr.revision} • Atualizado em {new Date(pgr.created_at).toLocaleDateString("pt-BR")}</p>
+                    return (
+                      <Link key={pgr.id} href={pgrHref}>
+                        <div className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors group cursor-pointer">
+                          <div className="flex items-center gap-4">
+                            <div
+                              className={`w-2 h-12 rounded-full ${
+                                pgr.status === "active"
+                                  ? "bg-emerald-500"
+                                  : pgr.status === "expired"
+                                    ? "bg-destructive"
+                                    : "bg-amber-500"
+                              }`}
+                            />
+                            <div>
+                              <p className="font-medium group-hover:text-primary transition-colors">{pgr.company?.name ?? "Empresa"}</p>
+                              <p className="text-sm text-muted-foreground">Rev. {pgr.revision} • Atualizado em {new Date(pgr.created_at).toLocaleDateString("pt-BR")}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4">
+                            <div className="text-right hidden sm:block">
+                              <p className="text-sm font-medium">
+                                {pgr.status === "active" ? "Vigente" : pgr.status === "expired" ? "Vencido" : "Rascunho"}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {pgr.status === "active" && pgr.valid_until ? `Até ${new Date(pgr.valid_until).toLocaleDateString("pt-BR")}` : "Ação Necessária"}
+                              </p>
+                            </div>
+                            <div className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground group-hover:text-primary">
+                              <ChevronRight className="h-4 w-4" />
+                            </div>
                           </div>
                         </div>
-                        <div className="flex items-center gap-4">
-                          <div className="text-right hidden sm:block">
-                            <p className="text-sm font-medium">
-                              {pgr.status === "active" ? "Vigente" : pgr.status === "expired" ? "Vencido" : "Rascunho"}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {pgr.status === "active" && pgr.valid_until ? `Até ${new Date(pgr.valid_until).toLocaleDateString("pt-BR")}` : "Ação Necessária"}
-                            </p>
-                          </div>
-                          <div className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground group-hover:text-primary">
-                            <ChevronRight className="h-4 w-4" />
-                          </div>
-                        </div>
-                      </div>
-                    </Link>
-                  );
-                })}
-              </div>
+                      </Link>
+                    );
+                  })}
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -270,7 +278,7 @@ export default function Dashboard() {
               <CardTitle>Ações Rápidas & Alertas</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="p-4 bg-white dark:bg-card border rounded-lg shadow-sm">
+              <div className="p-4 bg-card border rounded-lg shadow-sm">
                 <div className="flex items-center gap-2 mb-2">
                    <AlertTriangle className="h-4 w-4 text-amber-500" />
                    <h4 className="font-semibold text-sm">Treinamentos Vencendo</h4>
@@ -307,7 +315,7 @@ export default function Dashboard() {
                 </Link>
               </div>
 
-              <div className="p-4 bg-white dark:bg-card border rounded-lg shadow-sm">
+              <div className="p-4 bg-card border rounded-lg shadow-sm">
                  <div className="flex items-center gap-2 mb-2">
                    <TrendingUp className="h-4 w-4 text-emerald-500" />
                    <h4 className="font-semibold text-sm">Atualizações SST (MTE)</h4>
